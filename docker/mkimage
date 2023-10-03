@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -e
+
+source $(dirname "$(realpath -s "$0")")/sudo_if_needed.bash
+
+readonly DOCKER_IMAGE_NAME="$1"
+readonly DOCKER_FILE="$2"
+readonly DOCKER_VERSION="latest"
+
+# The default user for a Docker container has uid 0 (root). To avoid creating
+# root-owned files in the build directory we tell Docker to use the current user
+# ID, if known.
+readonly DOCKER_UID="${UID:-0}"
+readonly DOCKER_GID="$(id -g)"
+readonly DOCKER_USER="${USER:-root}"
+
+readonly FROM_IMAGE_FOR_SOLVERS=${FROM_IMAGE_FOR_SOLVERS:-ar_base:latest}
+readonly FROM_IMAGE_FOR_VERIFIERS=${FROM_IMAGE_FOR_VERIFIERS:-ar_solvers:latest}
+readonly FROM_IMAGE_FOR_AR=${FROM_IMAGE_FOR_AR:-ar_verifiers:latest}
+
+sudo_if_needed docker build \
+  --file=${DOCKER_FILE} \
+  --cache-from="${DOCKER_IMAGE_NAME}:${DOCKER_VERSION}" \
+  --tag="${DOCKER_IMAGE_NAME}:${DOCKER_VERSION}" \
+  --build-arg=USERNAME="$DOCKER_USER" \
+  --build-arg=USER_UID="$DOCKER_UID" \
+  --build-arg=USER_GID="$DOCKER_GID" \
+  --build-arg=UBUNTU_VERSION="22.04" \
+  --build-arg=FROM_IMAGE_FOR_SOLVERS="$FROM_IMAGE_FOR_SOLVERS" \
+  --build-arg=FROM_IMAGE_FOR_VERIFIERS="$FROM_IMAGE_FOR_VERIFIERS" \
+  --build-arg=FROM_IMAGE_FOR_AR="$FROM_IMAGE_FOR_AR" \
+  --build-arg=MINISAT_VERSION="14c78206cd12d1d36b7e042fa758747c135670a4" \
+  --build-arg=CVC4_VERSION="1.8" \
+  --build-arg=CVC5_VERSION="1.0.8" \
+  --build-arg=Z3_VERSION="4.12.2" \
+  --build-arg=PRUSTI_VERSION="2023-08-22-1715" \
+  . 1>&2
+
