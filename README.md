@@ -26,6 +26,14 @@ cd ~/creusot && export LD_LIBRARY_PATH+=:$(rustc --print=sysroot)/lib
 export PATH=/usr/local/prusti:$PATH
 ```
 
+### Ivy
+
+To run Ivy correctly, do not invoke the scripts directly, but rather [run them through the module system](https://stackoverflow.com/a/65589847), e.g.:
+
+```bash
+python3 -m ivy.ivy_check examples/ivy/array.ivy
+```
+
 ## Relevant Tools
 
 ### Rust verification

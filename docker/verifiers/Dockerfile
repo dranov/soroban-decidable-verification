@@ -47,66 +47,64 @@ RUN . $HOME/.cargo/env \
     && rustup install "$CHANNEL"
 ENV PATH /usr/local/prusti:$PATH
 
-# # Flux
-# WORKDIR ${USER_HOME}
+# Flux
+WORKDIR ${USER_HOME}
 
-# RUN curl -sSL https://get.haskellstack.org/ | sudo sh
-# RUN git clone https://github.com/ucsd-progsys/liquid-fixpoint.git \
-#     && cd liquid-fixpoint \
-#     && stack install
+RUN curl -sSL https://get.haskellstack.org/ | sudo sh
+RUN git clone https://github.com/ucsd-progsys/liquid-fixpoint.git \
+    && cd liquid-fixpoint \
+    && stack install
 
-# WORKDIR ${USER_HOME}
-# RUN . $HOME/.cargo/env \
-#     && git clone https://github.com/liquid-rust/flux \
-#     && cd flux \
-#     && cargo install --path flux \
-#     && cargo install --path flux-bin
+WORKDIR ${USER_HOME}
+RUN . $HOME/.cargo/env \
+    && git clone https://github.com/liquid-rust/flux \
+    && cd flux \
+    && cargo xtask install
 
 # MIRAI
-# WORKDIR ${USER_HOME}
-# RUN . $HOME/.cargo/env \
-#     && git clone https://github.com/facebookexperimental/MIRAI.git \
-#     && cd MIRAI \
-#     && cargo install --locked --path ./checker
+WORKDIR ${USER_HOME}
+RUN . $HOME/.cargo/env \
+    && git clone https://github.com/facebookexperimental/MIRAI.git \
+    && cd MIRAI \
+    && cargo install --locked --path ./checker
 
-# # Aeneas
-# RUN opam switch create 4.13.1+options
-# RUN opam install --yes ppx_deriving visitors easy_logging zarith yojson core_unix odoc \
-#     unionFind ocamlgraph
-# RUN . $HOME/.cargo/env && eval $(opam env) \
-#     git clone https://github.com/AeneasVerif/charon.git \
-#     && cd charon \
-#     && make \
-#     && cd charon-ml \
-#     && opam install --yes .
+# Aeneas
+RUN opam switch create 4.13.1+options
+RUN opam install --yes ppx_deriving visitors easy_logging zarith yojson core_unix odoc \
+    unionFind ocamlgraph
+RUN . $HOME/.cargo/env && eval $(opam env) \
+    git clone https://github.com/AeneasVerif/charon.git \
+    && cd charon \
+    && make \
+    && cd charon-ml \
+    && opam install --yes .
 
-# RUN . $HOME/.cargo/env && eval $(opam env) \
-#     && git clone https://github.com/AeneasVerif/aeneas.git \
-#     && cd aeneas \
-#     && ln -s ~/charon/charon-ml charon \ 
-#     && make
+RUN . $HOME/.cargo/env && eval $(opam env) \
+    && git clone https://github.com/AeneasVerif/aeneas.git \
+    && cd aeneas \
+    && ln -s ~/charon/charon-ml charon \ 
+    && make
 
-# # Crucible & Crux MIR
-# RUN . $HOME/.cargo/env \
-#     && git clone https://github.com/GaloisInc/mir-json.git \
-#     && cd mir-json \
-#     && rustup toolchain install nightly-2020-03-22 --force \
-#     && rustup component add --toolchain nightly-2020-03-22 rustc-dev \
-#     && rustup default nightly-2020-03-22 \
-#     && cargo install --locked
+# Crucible & Crux MIR
+RUN curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 sh
 
-# RUN curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 sh
+RUN . $HOME/.ghcup/env && . $HOME/.cargo/env \
+    && git clone https://github.com/GaloisInc/crucible.git \
+    && cd crucible \
+    && git submodule update --init \
+    && cd ./dependencies/mir-json \
+    && CHANNEL=$(cat ./rust-toolchain.toml | grep channel | cut -d'"' -f2) \
+    && rustup toolchain install "$CHANNEL" --force \
+    && rustup component add --toolchain "$CHANNEL" rustc-dev \
+    && cargo install --locked
 
-# RUN . $HOME/.ghcup/env \
-#     && git clone https://github.com/GaloisInc/crucible.git \
-#     && cd crucible \
-#     && ./scripts/build-sandbox.sh \
-#     && cd crux-mir \
-#     && git submodule update --init \
-#     && cabal v2-install exe:crux-mir --overwrite-policy=always
+RUN . $HOME/.ghcup/env && . $HOME/.cargo/env \
+    && cd crucible/crux-mir \
+    && git submodule update --init \
+    && cabal v2-install exe:crux-mir --overwrite-policy=always
 
-# RUN . $HOME/.ghcup/env && . $HOME/.cargo/env \
-#     && cd crucible/crux-mir \
-#     && ./translate_libs.sh
+RUN . $HOME/.ghcup/env && . $HOME/.cargo/env \
+    && cd crucible/crux-mir \
+    && ./translate_libs.sh
 
 # TODO: add SeaHorn
