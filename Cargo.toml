@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "experiments/deep_contract_auth",
+    "soroban-examples/cross_contract/contract_a",
+    "soroban-examples/cross_contract/contract_b",
+    "soroban-examples/deep_contract_auth",
+    "soroban-examples/fuzzing",
+    "soroban-examples/timelock",
+    "soroban-examples/token",
+]
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = false
+strip = "symbols"
+debug-assertions = false
+codegen-units = 1
+lto = true
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true
+
+[workspace.dependencies]
+soroban-sdk = "20.0.0-rc2"
