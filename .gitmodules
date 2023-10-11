@@ -7,3 +7,6 @@
 [submodule "rs-soroban-env"]
 	path = rs-soroban-env
 	url = git@github.com:dranov/rs-soroban-env.git
+[submodule "thirdparty-contracts/blend-contracts"]
+	path = thirdparty-contracts/blend-contracts
+	url = https://github.com/blend-capital/blend-contracts.git
