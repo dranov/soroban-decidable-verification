@@ -29,7 +29,8 @@ RUN git clone https://github.com/nano-o/ivy.git \
     && cd ivy \
     && git checkout 2to3new \
     && git submodule update --init \
-    && python3 build_submodules.py
+    && python3 build_submodules.py \
+    && sudo python3 setup.py install
 
 RUN pip3 install tarjan pydot
 # ENV PYTHONPATH=/home/${USERNAME}/ivy/:/home/${USERNAME}/ivy/ivy/
