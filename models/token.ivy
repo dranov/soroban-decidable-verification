@@ -1,0 +1,70 @@
+#lang ivy1.8
+
+include partial_map
+
+type address
+type money
+
+function (X:money + Y:money) : money
+function (X:money - Y:money) : money
+# interpret money -> bv[16]
+
+type ledger
+
+type allowance_key = struct {
+    owner : address,
+    spender : address
+}
+
+type allowance_money = struct {
+    amount : money,
+    expiration_ledger : ledger
+}
+
+action panic = {
+    assert false
+}
+
+# balance.rs
+object b = {
+    instance balance : partial_map(address, money)
+
+    action read_balance(a : address) returns (res : money) = {
+        if balance.has(a) {
+            res := balance.get(a)
+        } else {
+            res := 0
+        }
+    }
+
+    action write_balance(a : address, amount : money) = {
+        balance.set(a, amount)
+    }
+
+    action receive_balance(a : address, amount : money) = {
+        local balance : money {
+            balance := read_balance(a);
+            write_balance(a, balance + amount)
+        }
+    }
+
+    action spend_balance(a : address, amount : money) = {
+        local balance : money {
+            balance := read_balance(a);
+            if balance < amount {
+                panic();
+            }
+            write_balance(a, balance + amount)
+        }
+    }
+
+    export read_balance
+    export write_balance
+    export receive_balance
+    export spend_balance
+}
+
+
+conjecture [all_balances_positive]
+    forall A, V.
+        b.balance.pre(A) & b.balance.map(A, V) -> V >= 0
