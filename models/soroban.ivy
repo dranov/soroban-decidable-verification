@@ -21,5 +21,9 @@ export env.increase_ledger_sequence
 
 # Rust
 action panic = {
+    # FIXME: is this OK?
+    # ivy_check shows:
+    # the following program assertions are treated as guarantees:
+    #   in action panic when called from al.write_allowance,token.check_nonnegative_amount,token.initialize:
     assert false
 }

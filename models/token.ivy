@@ -5,7 +5,10 @@ include soroban
 type money
 function (X:money + Y:money) : money
 function (X:money - Y:money) : money
-# interpret money -> bv[16]
+interpret money -> bv[16]
+# fragment checker complains if money -> int
+# alternative to this interpretation is to add some facts about + and -
+# e.g. a + b >= a if b >= 0 etc.
 
 type allowance_key = struct {
     owner : address,
@@ -18,7 +21,7 @@ type allowance_value = struct {
 }
 
 # admin.rs
-object admin = {
+object ad = {
     # DataKey::Admin (_admin_key is a singleton enum type)
     type _admin_key = { datakey_admin }
     invariant [admin_key_singleton]
@@ -132,6 +135,124 @@ object b = {
     }
 }
 
+# TODO: should the above (admin, al, b) be modules instead of objects?
+# TODO: metadata.rs
+
+object token = {    
+    action check_nonnegative_amount(amount : money) = {
+        if amount < 0 {
+            panic()
+        }
+    }
+
+    action initialize(admin: address) = {
+        if ad.has_administrator() {
+            panic()
+        }
+        ad.write_administrator(admin)
+        # TODO: metadata
+    }
+
+    action mint(to : address, amount : money) = {
+        check_nonnegative_amount(amount);
+        local admin: address {
+            admin := ad.read_administrator();
+            # FIXME: admin.require_auth()
+            # FIXME: instance storage bump
+            b.receive_balance(to, amount)
+            # FIXME: env events
+        }
+    }
+
+    action set_admin(new_admin : address) = {
+        local admin: address {
+            admin := ad.read_administrator();
+            # FIXME: admin.require_auth()
+            # FIXME: instance storage bump
+            ad.write_administrator(new_admin)
+            # FIXME: env events
+        }
+    }
+
+    #############
+    # INTERFACE #
+    #############
+    action allowance(owner : address, spender : address) returns (res : money) = {
+        # FIXME: instance storage bump
+        local allowance : allowance_value {
+            allowance := al.read_allowance(owner, spender);
+            res := allowance.amount
+        }
+    }
+
+    action approve(owner : address, spender : address, amount : money, expiration_ledger : ledger) = {  
+        # FIXME: owner.require_auth()
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        al.write_allowance(owner, spender, amount, expiration_ledger)
+        # FIXME: env events
+    }
+
+    action balance(id: address) returns (res: money) = {
+        # FIXME: instance storage bump
+        res := b.read_balance(id)
+    }
+
+    action spendable_balance(id: address) returns (res: money) = {
+        # FIXME: instance storage bump
+        res := b.read_balance(id)
+    }
+
+    action transfer(owner : address, to : address, amount : money) = {
+        # FIXME: owner.require_auth()
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        b.spend_balance(owner, amount);
+        b.receive_balance(to, amount);
+        # FIXME: env events
+    }
+
+    action transfer_from(spender : address, owner : address, to : address, amount : money) = {
+        # FIXME: spender.require_auth()
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        al.spend_allowance(owner, spender, amount);
+        b.spend_balance(owner, amount);
+        b.receive_balance(to, amount);
+        # FIXME: env events
+    }
+
+    action burn(owner : address, amount : money) = {
+        # FIXME: owner.require_auth()
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        b.spend_balance(owner, amount);
+        # FIXME: env events
+    }
+
+    action burn_from(spender : address, owner : address, amount : money) = {
+        # FIXME: spender.require_auth()
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        al.spend_allowance(owner, spender, amount);
+        b.spend_balance(owner, amount);
+        # FIXME: env events
+    }
+
+    # TODO: metadata: decimals, name, symbol
+}
+
+export token.initialize
+export token.mint
+export token.set_admin
+export token.allowance
+export token.approve
+export token.balance
+export token.spendable_balance
+export token.transfer
+export token.transfer_from
+export token.burn
+export token.burn_from
 
 conjecture [all_balances_positive]
     forall A, V.
