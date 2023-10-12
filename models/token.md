@@ -24,7 +24,10 @@ pub enum DataKey {
 	- `initialize` - can be called by anyone if not already initialized
 	- `mint`
 
-We also need to model Soroban's host authorization logic.
+We also need to model:
+ - the environment, e.g. `e.ledger().sequence()``
+ - Soroban's host authorization logic
+ 
 
 ## Observations
 

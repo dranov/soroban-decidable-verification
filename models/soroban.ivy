@@ -1,0 +1,25 @@
+#lang ivy1.8
+
+include partial_map
+
+type address
+type ledger
+
+object env = {
+    individual current_ledger : ledger
+
+    action get_ledger_sequence returns (res: ledger) = {
+        res := current_ledger
+    }
+
+    action increase_ledger_sequence = {
+        current_ledger := current_ledger + 1
+    }
+}
+
+export env.increase_ledger_sequence
+
+# Rust
+action panic = {
+    assert false
+}

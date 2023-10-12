@@ -1,28 +1,101 @@
 #lang ivy1.8
 
-include partial_map
+include soroban
 
-type address
 type money
-
 function (X:money + Y:money) : money
 function (X:money - Y:money) : money
 # interpret money -> bv[16]
-
-type ledger
 
 type allowance_key = struct {
     owner : address,
     spender : address
 }
 
-type allowance_money = struct {
+type allowance_value = struct {
     amount : money,
     expiration_ledger : ledger
 }
 
-action panic = {
-    assert false
+# admin.rs
+object admin = {
+    # DataKey::Admin (_admin_key is a singleton enum type)
+    type _admin_key = { datakey_admin }
+    invariant [admin_key_singleton]
+        forall K1: _admin_key, K2: _admin_key. K1 = K2
+
+    instance a : partial_map(_admin_key, address)
+
+    action has_administrator returns (res : bool) = {
+        res := a.has(datakey_admin)
+    }
+
+    action read_administrator returns (res : address) = {
+        res := a.get(datakey_admin)
+    }
+
+    action write_administrator(new_admin : address) = {
+        a.set(datakey_admin, new_admin)
+    }
+}
+
+# allowance.rs
+object al = {
+    # FIXME: this is temporary storage
+    instance allowance : partial_map(allowance_key, allowance_value)
+
+    action read_allowance(owner : address, spender : address) returns (res : allowance_value) = {
+        local key: allowance_key, v: allowance_value {
+            key.owner := owner;
+            key.spender := spender;
+            if allowance.has(key) {
+                v := allowance.get(key);
+                if v.expiration_ledger < env.get_ledger_sequence() {
+                    v.amount := 0;
+                    res := v
+                } else {
+                    res := v;
+                }
+            } else {
+                    v.amount := 0;
+                    v.expiration_ledger := 0;
+                    res := v
+            }
+        }
+    }
+
+    action write_allowance(owner : address, spender : address, amount : money, expiration_ledger : ledger) = {
+        local v: allowance_value {
+            v.amount := amount;
+            v.expiration_ledger := expiration_ledger;
+
+            if amount > 0 & expiration_ledger < env.get_ledger_sequence() {
+                panic();
+            }
+
+            local key: allowance_key {
+                key.owner := owner;
+                key.spender := spender;
+                # FIXME: model temporary storage
+                allowance.set(key, v);
+
+                if amount > 0 {
+                    # FIXME: model temporary storage
+                    # bump entry TTL
+                }
+            }
+        }
+    }
+
+    action spend_allowance(owner : address, spender : address, amount : money) = {
+        local v: allowance_value {
+            v := read_allowance(owner, spender);
+            if v.amount < amount {
+                panic();
+            }
+            write_allowance(owner, spender, v.amount - amount, v.expiration_ledger);
+        }
+    }
 }
 
 # balance.rs
@@ -57,11 +130,6 @@ object b = {
             write_balance(a, balance + amount)
         }
     }
-
-    export read_balance
-    export write_balance
-    export receive_balance
-    export spend_balance
 }
 
 
