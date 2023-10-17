@@ -16,6 +16,7 @@ RUN apt-get --yes update \
   flex \
   gcc \
   git \
+  less \
   libboost-all-dev \ 
   libgmp-dev \
   make \
@@ -23,9 +24,11 @@ RUN apt-get --yes update \
   perl \
   pkg-config \
   python3 \
+  ripgrep \
   rsync \
   sudo \
   unzip \
+  vim \
   wget \
   # Cleanup
   && apt-get clean

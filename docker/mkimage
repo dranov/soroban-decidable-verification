@@ -15,8 +15,9 @@ readonly DOCKER_GID="$(id -g)"
 readonly DOCKER_USER="${USER:-root}"
 
 readonly FROM_IMAGE_FOR_SOLVERS=${FROM_IMAGE_FOR_SOLVERS:-ar_base:latest}
-readonly FROM_IMAGE_FOR_VERIFIERS=${FROM_IMAGE_FOR_VERIFIERS:-ar_solvers:latest}
-readonly FROM_IMAGE_FOR_SPECTOOLS=${FROM_IMAGE_FOR_AR:-ar_verifiers:latest}
+readonly FROM_IMAGE_FOR_SPECTOOLS=${FROM_IMAGE_FOR_AR:-ar_solvers:latest}
+readonly FROM_IMAGE_FOR_VERIFIERS=${FROM_IMAGE_FOR_VERIFIERS:-ar_spectools:latest}
+# If you want to build verifiers: change `ar_spectools` to `ar_verifiers` in the line below:
 readonly FROM_IMAGE_FOR_AR=${FROM_IMAGE_FOR_AR:-ar_spectools:latest}
 
 sudo_if_needed docker build \

@@ -4,8 +4,7 @@ set -e
 # Build each image
 (cd docker/base         && ../mkimage ar_base           Dockerfile)
 (cd docker/solvers      && ../mkimage ar_solvers        Dockerfile)
-(cd docker/verifiers    && ../mkimage ar_verifiers      Dockerfile)
 (cd docker/spectools    && ../mkimage ar_spectools      Dockerfile)
-
+# (cd docker/verifiers    && ../mkimage ar_verifiers      Dockerfile)
 
 docker/mkimage ar docker/ar/Dockerfile

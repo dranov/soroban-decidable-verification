@@ -5,6 +5,9 @@ ARG USERNAME
 USER ${USERNAME}
 
 # mypyvy
+RUN sudo apt-get update \
+    && sudo apt-get install -y python3-pip \
+    && sudo apt-get clean
 WORKDIR ${USER_HOME}
 RUN git clone https://github.com/wilcoxjay/mypyvy.git \
     && cd mypyvy \
@@ -13,6 +16,7 @@ RUN git clone https://github.com/wilcoxjay/mypyvy.git \
 
 # temporal-verifier / flyvy
 WORKDIR ${USER_HOME}
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN . $HOME/.cargo/env \ 
     && git clone https://github.com/vmware-research/temporal-verifier.git \
     && cd temporal-verifier \
@@ -21,9 +25,11 @@ RUN . $HOME/.cargo/env \
 
 # ivy (Python 3)
 WORKDIR ${USER_HOME}
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC sudo -E apt-get -y install tzdata
 RUN sudo apt-get install --no-install-recommends --yes \
     g++ cmake python3-ply python3-tk tix libssl-dev python3-setuptools \
-    libreadline-dev python3-pyparsing python-is-python3
+    libreadline-dev python3-pyparsing python-is-python3 \
+    && sudo apt-get clean
 
 RUN git clone https://github.com/nano-o/ivy.git \
     && cd ivy \

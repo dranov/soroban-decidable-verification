@@ -8,8 +8,6 @@ USER ${USERNAME}
 #     && rustup default nightly \
 #     && rustup component add miri
 
-RUN sudo apt-get install -y ripgrep vim less
-
 # Soroban
 RUN . $HOME/.cargo/env \
     && rustup target add wasm32-unknown-unknown
