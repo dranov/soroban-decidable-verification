@@ -254,6 +254,20 @@ export token.transfer_from
 export token.burn
 export token.burn_from
 
+action execute_transaction = {
+    # TODO: save state at begin_transaction and restore at end
+    call env.begin_transaction;
+    local a: address {
+        # FIXME: this syntax doesn't work anymore!
+        # if * {
+        #     a := a;
+        # }
+        a := a;
+    }
+    call env.end_transaction;
+}
+export execute_transaction
+
 conjecture [all_balances_positive]
     forall A, V.
         b.balance.pre(A) & b.balance.map(A, V) -> V >= 0

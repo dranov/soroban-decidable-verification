@@ -6,18 +6,78 @@ type address
 type ledger
 interpret ledger -> int
 
+# Keeps track of the context of a transaction
+type transaction = struct {
+    has_started: bool,
+    has_panicked: bool
+}
+
 object env = {
     individual current_ledger : ledger
+    individual current_transaction : transaction
 
     after init {
         current_ledger := 0;
+        current_transaction.has_started := false;
+        current_transaction.has_panicked := false;
     }
+
+    ##########################
+    # Transaction management #
+    ##########################
+    
+    action clear_transaction = {
+        current_transaction.has_started := false;
+        current_transaction.has_panicked := false;
+    }
+    
+    action begin_transaction = {
+        require ~current_transaction.has_started;
+        current_transaction.has_started := true;
+    }
+
+    action end_transaction = {
+        require current_transaction.has_started;
+        # We can technically check properties here, and
+        # set a flag and not "assume false" if they fail.
+        var all_checks_passed : bool;
+        all_checks_passed := true;
+
+        # e.g.:
+        # if ~inv1 {
+        #     inv1_holds := false;
+        #     all_checked_passed := false;
+        # }
+
+        # Alternative: abort all changes except modifications to `current_transaction`
+        # Fmla should be: "(transition & assume false) | clear_transaction"
+        if all_checks_passed & current_transaction.has_panicked {
+            assume false
+        }
+        call clear_transaction
+    }
+
+    ###########################################
+    # Actions that happen within transactions #
+    ###########################################
 
     action get_ledger_sequence returns (res: ledger) = {
         res := current_ledger
     }
 
+    # TODO: record panic location?
+    action panic = {
+        require current_transaction.has_started;
+        current_transaction.has_panicked := true;
+        call end_transaction
+    }
+
+    ############################################
+    # Actions that happen outside transactions #
+    ############################################
+    
     action increase_ledger_sequence = {
+        require ~current_transaction.has_started;
         current_ledger := current_ledger + 1
     }
 
@@ -28,5 +88,6 @@ export env.increase_ledger_sequence
 
 # Rust
 action panic = {
-    assume false
+    # assume false
+    call env.panic
 }

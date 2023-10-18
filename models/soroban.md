@@ -1,5 +1,20 @@
 # Soroban Environment Model
 
+## Transactions
+
+Intuitively, we ought to account for the transactional nature of Soroban smart
+contracts, i.e. contract transitions/methods are not called "by themselves", but
+only within the context of a transaction, and the blockchain environment *does
+not* change within the context of a transaction.
+
+### Panics
+
+In this context, panics can be modelled as a flag that is set when `panic!` is
+called. In the `end_transaction()` Ivy transition, if the `panic` flag is set,
+then all changes are aborted (using `assume false`?).
+ - we might be able to check for properties of the form "if X, the transaction
+   aborts" or "if the transactions succeeds, then Y" as a `before` monitor on `end_transaction`?
+
 ## Authorization
 
 ### Implementation
