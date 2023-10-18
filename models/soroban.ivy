@@ -4,9 +4,14 @@ include partial_map
 
 type address
 type ledger
+interpret ledger -> int
 
 object env = {
     individual current_ledger : ledger
+
+    after init {
+        current_ledger := 0;
+    }
 
     action get_ledger_sequence returns (res: ledger) = {
         res := current_ledger
@@ -15,6 +20,8 @@ object env = {
     action increase_ledger_sequence = {
         current_ledger := current_ledger + 1
     }
+
+    conjecture [ledger_nonnegative] env.current_ledger >= 0
 }
 
 export env.increase_ledger_sequence

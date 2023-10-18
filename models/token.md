@@ -27,8 +27,8 @@ pub enum DataKey {
 We also need to model:
  - the environment, e.g. `e.ledger().sequence()``
  - Soroban's host authorization logic
+ - the panic/abort system
  
-
 ## Observations
 
 - Because Soroban has the catch-all `Val` type, we have to be careful to
