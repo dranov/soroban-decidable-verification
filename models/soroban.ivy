@@ -1,5 +1,4 @@
 #lang ivy1.8
-include order
 
 #########################################
 # Mappings (with transactional support) #
@@ -74,6 +73,7 @@ module partial_map(dom,rng) = {
     trusted isolate iso = this
 }
 
+# Singleton value -- effectively a map with a single key
 module singleton(rng) = {
     individual is_set: bool
     individual v: rng
@@ -114,6 +114,52 @@ module singleton(rng) = {
             assume r = is_set
         }
     }
+}
+
+# Copied from `order.ivy`; can `include order` instead
+module unbounded_sequence = {
+    type this
+    alias t = this
+
+    # returns the least key greater than x
+    action next(x:t) returns (y:t)
+
+    # returns the greatest key less than x
+    action prev(x:t) returns (y:t)
+
+    relation succ(X:t,Y:t)
+
+    object spec = {
+        property [transitivity] (T:t < U & U < V) -> (T < V)
+        property [antisymmetry] ~(T:t < U & U < T)
+        property [totality] T:t < U | T = U | U < T
+        property [succ_def] succ(X,Z) -> (X < Z & ~(X < Y & Y < Z))
+        property [zero_smallest] 0 <= X:t
+
+        after next {
+            assert x < y & (x < Y -> y <= Y);
+            assert succ(x,y)
+        }
+        before prev {
+            assert 0 < x
+        }
+        after prev {
+            assert y < x & (Y < x -> Y <= y);
+            assert succ(y,x)
+        }
+    }
+
+    object impl = {
+        interpret t -> nat
+        definition succ(X,Y) = (Y = X + 1)
+        implement next {
+            y := x + 1
+        }
+        implement prev {
+            y := x - 1
+        }
+    }
+    isolate iso = impl,spec
 }
 
 ##########################

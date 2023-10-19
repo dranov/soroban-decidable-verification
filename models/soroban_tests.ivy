@@ -14,3 +14,5 @@ action _save_restore_roundtrip = {
     ensure kv.map(X, Y) = (old kv.map(X, Y));
 }
 export _save_restore_roundtrip
+
+conjecture [succ_lt] ledger.succ(X, Y) -> X < Y
