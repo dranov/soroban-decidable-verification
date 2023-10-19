@@ -1,4 +1,5 @@
 #lang ivy1.8
+include order
 
 #########################################
 # Mappings (with transactional support) #
@@ -38,8 +39,8 @@ module partial_map(dom,rng) = {
 
     specification {
         after init {
-                map(X,Y) := false
-            }
+            map(X,Y) := false
+        }
 
         implement set {
             call img_lemma(x);
@@ -73,12 +74,54 @@ module partial_map(dom,rng) = {
     trusted isolate iso = this
 }
 
+module singleton(rng) = {
+    individual is_set: bool
+    individual v: rng
+
+    action set(y:rng)
+    action get returns (y:rng)
+    action has returns (r:bool)
+
+    ######################
+    # Transaction suport #
+    ######################
+    individual _is_set: bool
+    individual _v: rng
+    action _save_state = {
+        _is_set := is_set;
+        _v := v
+    }
+    action _restore_state = {
+        is_set := _is_set;
+        v := _v
+    }
+
+    specification {
+        after init {
+            is_set := false
+        }
+
+        implement set {
+            is_set := true;
+            v := y
+        }
+
+        after get {
+            assume is_set -> v = y
+        }
+
+        after has {
+            assume r = is_set
+        }
+    }
+}
+
 ##########################
 # Stellar-specific types #
 ##########################
 type address
-type ledger
-interpret ledger -> int
+instance ledger : unbounded_sequence
+# interpret ledger -> nat
 
 ###############
 # Environment #
@@ -146,12 +189,12 @@ object env = {
     
     action increase_ledger_sequence = {
         require ~current_transaction.has_started;
-        current_ledger := current_ledger + 1;
+        current_ledger := ledger.next(current_ledger);
         ensure ~current_transaction.has_started;
     }
 
     conjecture [atomic_transactions] ~env.current_transaction.has_started
-    conjecture [ledger_nonnegative] env.current_ledger >= 0
+    conjecture [ledger_nonnegative] 0 <= env.current_ledger
 }
 
 export env.increase_ledger_sequence

@@ -22,12 +22,7 @@ type allowance_value = struct {
 
 # admin.rs
 object ad = {
-    # DataKey::Admin (_admin_key is a singleton enum type)
-    type _admin_key = { datakey_admin }
-    invariant [admin_key_singleton]
-        forall K1: _admin_key, K2: _admin_key. K1 = K2
-
-    instance a : partial_map(_admin_key, address)
+    instance a : singleton(address)
     action _save_state = {
         a._save_state()
     }
@@ -36,15 +31,15 @@ object ad = {
     }
 
     action has_administrator returns (res : bool) = {
-        res := a.has(datakey_admin)
+        res := a.has()
     }
 
     action read_administrator returns (res : address) = {
-        res := a.get(datakey_admin)
+        res := a.get()
     }
 
     action write_administrator(new_admin : address) = {
-        a.set(datakey_admin, new_admin)
+        a.set(new_admin)
     }
 }
 
@@ -281,16 +276,18 @@ action execute_transaction = {
     ad._save_state();
     al._save_state();
     b._save_state();
-    local tx: tx_type, a: address, b: address, m: money {
+    local tx: tx_type, _a: address, _b: address, _m: money {
         if tx = initialize {
-            token.initialize(a);
+            token.initialize(_a);
         } else if tx = mint {
-            token.mint(a, m);
-            assert env.current_transaction.has_panicked -> m < 0;
+            assert b.balance.pre(X) = (old b.balance.pre(X));
+            assert b.balance.map(X, Y) = (old b.balance.map(X, Y));
+            token.mint(_a, _m);
+            assert (_m >= 0) -> ~env.current_transaction.has_panicked;
         } else if tx = set_admin {
-            token.set_admin(a);
+            token.set_admin(_a);
         } else if tx = allowance {
-            m := token.allowance(a, b);
+            _m := token.allowance(_a, _b);
         }
     }
     # Restore state; TODO: specification of restore
@@ -300,6 +297,8 @@ action execute_transaction = {
         ad._restore_state();
         al._restore_state();
         b._restore_state();
+        assert b.balance.pre(X) = (old b.balance.pre(X));
+        assert b.balance.map(X, Y) = (old b.balance.map(X, Y));
     }
 }
 export execute_transaction

@@ -38,6 +38,6 @@ RUN git clone https://github.com/nano-o/ivy.git \
     && python3 build_submodules.py \
     && sudo python3 setup.py install
 
-RUN pip3 install tarjan pydot
+RUN pip3 install pyparsing ply tarjan pydot
 # ENV PYTHONPATH=/home/${USERNAME}/ivy/:/home/${USERNAME}/ivy/ivy/
 
