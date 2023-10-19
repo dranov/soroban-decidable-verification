@@ -28,6 +28,12 @@ object ad = {
         forall K1: _admin_key, K2: _admin_key. K1 = K2
 
     instance a : partial_map(_admin_key, address)
+    action _save_state = {
+        a._save_state()
+    }
+    action _restore_state = {
+        a._restore_state()
+    }
 
     action has_administrator returns (res : bool) = {
         res := a.has(datakey_admin)
@@ -46,6 +52,12 @@ object ad = {
 object al = {
     # FIXME: this is temporary storage
     instance allowance : partial_map(allowance_key, allowance_value)
+    action _save_state = {
+        allowance._save_state()
+    }
+    action _restore_state = {
+        allowance._restore_state()
+    }
 
     action read_allowance(owner : address, spender : address) returns (res : allowance_value) = {
         local key: allowance_key, v: allowance_value {
@@ -104,6 +116,12 @@ object al = {
 # balance.rs
 object b = {
     instance balance : partial_map(address, money)
+    action _save_state = {
+        balance._save_state()
+    }
+    action _restore_state = {
+        balance._restore_state()
+    }
 
     action read_balance(a : address) returns (res : money) = {
         if balance.has(a) {
@@ -242,29 +260,47 @@ object token = {
     # TODO: metadata: decimals, name, symbol
 }
 
-export token.initialize
-export token.mint
-export token.set_admin
-export token.allowance
-export token.approve
-export token.balance
-export token.spendable_balance
-export token.transfer
-export token.transfer_from
-export token.burn
-export token.burn_from
+type tx_type = {
+    initialize,
+    mint,
+    set_admin,
+    allowance,
+    approve,
+    balance,
+    spendable_balance,
+    transfer,
+    transfer_from,
+    burn,
+    burn_from
+}
 
+# Objects: ad, al, b, token
 action execute_transaction = {
-    # TODO: save state at begin_transaction and restore at end
-    call env.begin_transaction;
-    local a: address {
-        # FIXME: this syntax doesn't work anymore!
-        # if * {
-        #     a := a;
-        # }
-        a := a;
+    env.begin_transaction();
+    # Save state
+    ad._save_state();
+    al._save_state();
+    b._save_state();
+    local tx: tx_type, a: address, b: address, m: money {
+        if tx = initialize {
+            token.initialize(a);
+        } else if tx = mint {
+            token.mint(a, m);
+            assert env.current_transaction.has_panicked -> m < 0;
+        } else if tx = set_admin {
+            token.set_admin(a);
+        } else if tx = allowance {
+            m := token.allowance(a, b);
+        }
     }
-    call env.end_transaction;
+    # Restore state; TODO: specification of restore
+    var restore: bool;
+    restore := env.end_transaction();
+    if restore {
+        ad._restore_state();
+        al._restore_state();
+        b._restore_state();
+    }
 }
 export execute_transaction
 

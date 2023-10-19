@@ -28,10 +28,14 @@ export PATH=/usr/local/prusti:$PATH
 
 ### Ivy
 
-To run Ivy correctly, do not invoke the scripts directly, but rather [run them through the module system](https://stackoverflow.com/a/65589847), e.g.:
+To run Ivy correctly, do not invoke the scripts directly, but rather
+[run them through the module system](https://stackoverflow.com/a/65589847), e.g.
+`python3 -m ivy.ivy_check examples/ivy/array.ivy`. In the Docker image, you can
+just:
 
 ```bash
-python3 -m ivy.ivy_check examples/ivy/array.ivy
+ivy_check examples/ivy/array.ivy
+ivy_show isolate=this models/token.ivy
 ```
 
 ## Relevant Tools

@@ -1,18 +1,96 @@
 #lang ivy1.8
 
-include partial_map
+#########################################
+# Mappings (with transactional support) #
+#########################################
+module partial_map(dom,rng) = {
+    relation map(X:dom,Y:rng)
+    relation pre(X:dom) 
 
+    # mutate the function so x maps to y
+    action set(x:dom,y:rng)
+
+    # remove an element from the pre-image
+    action remove(x:dom)
+
+    # get the value of x, if any
+    action get(x:dom) returns (y:rng)
+
+    # true if x is in the pre-image
+    action has(x:dom) returns (r:bool)
+    
+    # if x in pre, there exists a y such that map(x,y)
+    action img_lemma(x:dom)
+
+    ######################
+    # Transaction suport #
+    ######################
+    relation _map(X:dom,Y:rng)
+    relation _pre(X:dom)
+    action _save_state = {
+        _map(X,Y) := map(X,Y);
+        _pre(X) := pre(X)
+    }
+    action _restore_state = {
+        map(X,Y) := _map(X,Y);
+        pre(X) := _pre(X)
+    }
+
+    specification {
+        after init {
+                map(X,Y) := false
+            }
+
+        implement set {
+            call img_lemma(x);
+            map(x,Y) := Y = y;
+            pre(x) := true
+        }
+
+        implement remove {
+            call img_lemma(x);
+            map(x,Y) := false;
+            pre(x) := false
+        }
+
+        after get {
+            assume pre(x) -> map(x,y)
+        }
+
+        after has {
+            assume r = pre(x)
+        }
+
+        implement img_lemma(x:dom) {
+            assume pre(x) -> exists Y. map(x,Y)
+        }
+
+        explicit invariant [img] pre(X) -> exists Y. map(X,Y)
+    }
+
+    conjecture [functionality] map(K,L) & map(K,M) -> L = M
+
+    trusted isolate iso = this
+}
+
+##########################
+# Stellar-specific types #
+##########################
 type address
 type ledger
 interpret ledger -> int
 
-# Keeps track of the context of a transaction
-type transaction = struct {
-    has_started: bool,
-    has_panicked: bool
-}
+###############
+# Environment #
+###############
 
 object env = {
+    # Keeps track of the context of a transaction
+    type transaction = struct {
+        has_started: bool,
+        has_panicked: bool
+    }
+
     individual current_ledger : ledger
     individual current_transaction : transaction
 
@@ -26,7 +104,7 @@ object env = {
     # Transaction management #
     ##########################
     
-    action clear_transaction = {
+    action new_transaction = {
         current_transaction.has_started := false;
         current_transaction.has_panicked := false;
     }
@@ -36,25 +114,14 @@ object env = {
         current_transaction.has_started := true;
     }
 
-    action end_transaction = {
-        require current_transaction.has_started;
-        # We can technically check properties here, and
-        # set a flag and not "assume false" if they fail.
-        var all_checks_passed : bool;
-        all_checks_passed := true;
-
-        # e.g.:
-        # if ~inv1 {
-        #     inv1_holds := false;
-        #     all_checked_passed := false;
-        # }
-
-        # Alternative: abort all changes except modifications to `current_transaction`
-        # Fmla should be: "(transition & assume false) | clear_transaction"
-        if all_checks_passed & current_transaction.has_panicked {
-            assume false
+    # Transaction executor must restore initial state if transaction panics
+    action end_transaction returns (restore_state:bool) = {
+        # require current_transaction.has_started;
+        restore_state := false;
+        if current_transaction.has_panicked {
+            restore_state := true;
         }
-        call clear_transaction
+        call new_transaction
     }
 
     ###########################################
@@ -69,7 +136,8 @@ object env = {
     action panic = {
         require current_transaction.has_started;
         current_transaction.has_panicked := true;
-        call end_transaction
+        var _:bool;
+        _ := end_transaction();
     }
 
     ############################################
@@ -78,9 +146,11 @@ object env = {
     
     action increase_ledger_sequence = {
         require ~current_transaction.has_started;
-        current_ledger := current_ledger + 1
+        current_ledger := current_ledger + 1;
+        ensure ~current_transaction.has_started;
     }
 
+    conjecture [atomic_transactions] ~env.current_transaction.has_started
     conjecture [ledger_nonnegative] env.current_ledger >= 0
 }
 
@@ -88,6 +158,5 @@ export env.increase_ledger_sequence
 
 # Rust
 action panic = {
-    # assume false
     call env.panic
 }

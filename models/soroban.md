@@ -11,9 +11,7 @@ not* change within the context of a transaction.
 
 In this context, panics can be modelled as a flag that is set when `panic!` is
 called. In the `end_transaction()` Ivy transition, if the `panic` flag is set,
-then all changes are aborted (using `assume false`?).
- - we might be able to check for properties of the form "if X, the transaction
-   aborts" or "if the transactions succeeds, then Y" as a `before` monitor on `end_transaction`?
+then all changes are aborted.
 
 ## Authorization
 
