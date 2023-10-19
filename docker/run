@@ -9,7 +9,22 @@ readonly MOUNT_PWD="type=bind,source=${PWD},target=${PWD}"
 readonly MOUNT_RVT="type=bind,source=${RVT_SRC},target=${RVT_DST}"
 
 # based on https://dzone.com/articles/docker-x11-client-via-ssh
-# readonly X11="--net=host --env=DISPLAY --volume=$HOME/.Xauthority:/home/$USER/.Xauthority:rw"
+# FIXME: I haven't tested this!
+# readonly X11_LINUX="--net=host --env=DISPLAY --volume=$HOME/.Xauthority:/home/$USER/.Xauthority:rw"
 
-# sudo_if_needed docker run --rm --mount ${MOUNT_RVT} --mount ${MOUNT_PWD} --workdir ${PWD} ${X11} -it ar_base:latest "$@"
-sudo_if_needed docker run --rm --mount ${MOUNT_RVT} --mount ${MOUNT_PWD} --workdir ${PWD} -it ar:latest "$@"
+# WSL2 with graphics: https://github.com/microsoft/wslg
+# based on https://stackoverflow.com/questions/73092750/how-to-show-gui-apps-from-docker-desktop-container-on-windows-11
+readonly X11_WSLG="--env=DISPLAY --env=WAYLAND_DISPLAY --volume=/mnt/wslg/.X11-unix:/tmp/.X11-unix:rw --volume=/mnt/wslg/"
+IS_WSLG=$(which wslg.exe> /dev/null 2>&1)$?
+
+if [[ $IS_WSLG -eq 0 ]]
+then
+    echo "WSLg detected; running with X forwarding."
+    sudo_if_needed docker run --rm --mount ${MOUNT_RVT} --mount ${MOUNT_PWD} --workdir ${PWD} ${X11_WSLG} -it ar:latest "$@"
+else
+    echo "Running without X forwarding. Edit 'docker/run' if you need it."
+    sudo_if_needed docker run --rm --mount ${MOUNT_RVT} --mount ${MOUNT_PWD} --workdir ${PWD} -it ar:latest "$@"
+
+fi
+# sudo_if_needed docker run --rm --mount ${MOUNT_RVT} --mount ${MOUNT_PWD} --workdir ${PWD} ${X11_WSLG} -it ar:latest "$@"
+# sudo_if_needed docker run --rm --mount ${MOUNT_RVT} --mount ${MOUNT_PWD} --workdir ${PWD} -it ar:latest "$@"
