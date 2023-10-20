@@ -2,13 +2,15 @@
 
 include soroban
 
-type money
-function (X:money + Y:money) : money
-function (X:money - Y:money) : money
-interpret money -> int
+instance money : integer
+# type money
+# interpret money -> int
 # fragment checker complains if money -> int, so run `ivy_check complete=fo`
 # alternative to this interpretation is to add some facts about + and -
 # e.g. a + b >= a if b >= 0 etc.
+
+function (X:money + Y:money) : money
+function (X:money - Y:money) : money
 
 type allowance_key = struct {
     owner : address,

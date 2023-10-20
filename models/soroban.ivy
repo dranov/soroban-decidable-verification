@@ -162,6 +162,50 @@ module unbounded_sequence = {
     isolate iso = impl,spec
 }
 
+module integer = {
+    type this
+    alias t = this
+
+    # returns the least key greater than x
+    action next(x:t) returns (y:t)
+
+    # returns the greatest key less than x
+    action prev(x:t) returns (y:t)
+
+    relation succ(X:t,Y:t)
+
+    object spec = {
+        property [transitivity] (T:t < U & U < V) -> (T < V)
+        property [antisymmetry] ~(T:t < U & U < T)
+        property [totality] T:t < U | T = U | U < T
+        property [succ_def] succ(X,Z) -> (X < Z & ~(X < Y & Y < Z))
+
+        after next {
+            assert x < y & (x < Y -> y <= Y);
+            assert succ(x,y)
+        }
+        before prev {
+            assert 0 < x
+        }
+        after prev {
+            assert y < x & (Y < x -> Y <= y);
+            assert succ(y,x)
+        }
+    }
+
+    object impl = {
+        interpret t -> int
+        definition succ(X,Y) = (Y = X + 1)
+        implement next {
+            y := x + 1
+        }
+        implement prev {
+            y := x - 1
+        }
+    }
+    isolate iso = impl,spec
+}
+
 ##########################
 # Stellar-specific types #
 ##########################
