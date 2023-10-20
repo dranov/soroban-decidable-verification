@@ -42,6 +42,7 @@ RUN sudo ln -s /usr/bin/python2 /usr/bin/python \
 
 # RUN sudo rm /usr/bin/python
 RUN pip2 install pyparsing ply tarjan pydot
+RUN sudo apt-get install -y graphviz && sudo apt-get clean
 
 
 # RUN git clone https://github.com/dranov/ivy.git \
