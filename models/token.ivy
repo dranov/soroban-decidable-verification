@@ -2,9 +2,9 @@
 
 include soroban
 
-instance money : integer
-# type money
-# interpret money -> int
+# instance money : integer
+type money
+interpret money -> int
 # fragment checker complains if money -> int, so run `ivy_check complete=fo`
 # alternative to this interpretation is to add some facts about + and -
 # e.g. a + b >= a if b >= 0 etc.
@@ -285,7 +285,7 @@ action execute_transaction = {
             assert b.balance.pre(X) = (old b.balance.pre(X));
             assert b.balance.map(X, Y) = (old b.balance.map(X, Y));
             token.mint(_a, _m);
-            assert (_m >= 0) -> ~env.current_transaction.has_panicked;
+            assert (_m >= 0) -> ~env.tx_has_panicked;
         } else if tx = set_admin {
             token.set_admin(_a);
         } else if tx = allowance {

@@ -162,50 +162,6 @@ module unbounded_sequence = {
     isolate iso = impl,spec
 }
 
-module integer = {
-    type this
-    alias t = this
-
-    # returns the least key greater than x
-    action next(x:t) returns (y:t)
-
-    # returns the greatest key less than x
-    action prev(x:t) returns (y:t)
-
-    relation succ(X:t,Y:t)
-
-    object spec = {
-        property [transitivity] (T:t < U & U < V) -> (T < V)
-        property [antisymmetry] ~(T:t < U & U < T)
-        property [totality] T:t < U | T = U | U < T
-        property [succ_def] succ(X,Z) -> (X < Z & ~(X < Y & Y < Z))
-
-        after next {
-            assert x < y & (x < Y -> y <= Y);
-            assert succ(x,y)
-        }
-        before prev {
-            assert 0 < x
-        }
-        after prev {
-            assert y < x & (Y < x -> Y <= y);
-            assert succ(y,x)
-        }
-    }
-
-    object impl = {
-        interpret t -> int
-        definition succ(X,Y) = (Y = X + 1)
-        implement next {
-            y := x + 1
-        }
-        implement prev {
-            y := x - 1
-        }
-    }
-    isolate iso = impl,spec
-}
-
 ##########################
 # Stellar-specific types #
 ##########################
@@ -218,19 +174,16 @@ instance ledger : unbounded_sequence
 ###############
 
 object env = {
-    # Keeps track of the context of a transaction
-    type transaction = struct {
-        has_started: bool,
-        has_panicked: bool
-    }
-
     individual current_ledger : ledger
-    individual current_transaction : transaction
+
+    # Keeps track of the context of a transaction
+    individual tx_has_started: bool
+    individual tx_has_panicked: bool
 
     after init {
         current_ledger := 0;
-        current_transaction.has_started := false;
-        current_transaction.has_panicked := false;
+        tx_has_started := false;
+        tx_has_panicked := false;
     }
 
     ##########################
@@ -238,20 +191,20 @@ object env = {
     ##########################
     
     action new_transaction = {
-        current_transaction.has_started := false;
-        current_transaction.has_panicked := false;
+        tx_has_started := false;
+        tx_has_panicked := false;
     }
     
     action begin_transaction = {
-        require ~current_transaction.has_started;
-        current_transaction.has_started := true;
+        require ~tx_has_started;
+        tx_has_started := true;
     }
 
     # Transaction executor must restore initial state if transaction panics
     action end_transaction returns (restore_state:bool) = {
-        # require current_transaction.has_started;
+        # require tx_has_started;
         restore_state := false;
-        if current_transaction.has_panicked {
+        if tx_has_panicked {
             restore_state := true;
         }
         call new_transaction
@@ -267,8 +220,8 @@ object env = {
 
     # TODO: record panic location?
     action panic = {
-        require current_transaction.has_started;
-        current_transaction.has_panicked := true;
+        require tx_has_started;
+        tx_has_panicked := true;
         var _:bool;
         _ := end_transaction();
     }
@@ -278,12 +231,12 @@ object env = {
     ############################################
     
     action increase_ledger_sequence = {
-        require ~current_transaction.has_started;
+        require ~tx_has_started;
         current_ledger := ledger.next(current_ledger);
-        ensure ~current_transaction.has_started;
+        ensure ~tx_has_started;
     }
 
-    conjecture [atomic_transactions] ~env.current_transaction.has_started
+    conjecture [atomic_transactions] ~env.tx_has_started
     conjecture [ledger_nonnegative] 0 <= env.current_ledger
 }
 
