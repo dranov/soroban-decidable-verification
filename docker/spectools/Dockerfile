@@ -23,22 +23,53 @@ RUN . $HOME/.cargo/env \
     && ./tools/download-solvers.sh \
     && cargo build --release
 
-# ivy (Python 3)
+# ivy (Python 2)
 WORKDIR ${USER_HOME}
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC sudo -E apt-get -y install tzdata
 RUN sudo apt-get install --no-install-recommends --yes \
-    g++ cmake python3-ply python3-tk tix libssl-dev python3-setuptools \
-    libreadline-dev python3-pyparsing python-is-python3 \
+    g++ cmake tix libssl-dev libreadline-dev \
+    python2 python-pip python-tk  python-setuptools  \
     && sudo apt-get clean
 
-RUN git clone https://github.com/nano-o/ivy.git \
+RUN git clone https://github.com/dranov/ivy.git \
     && cd ivy \
-    && git checkout 2to3new \
-    && git submodule update --init \
-    && python3 build_submodules.py \
-    && sudo python3 setup.py install
+    && git submodule update --init
 
-RUN pip3 install pyparsing ply tarjan pydot
-RUN sudo apt-get install -y graphviz && sudo apt-get clean
+RUN sudo ln -s /usr/bin/python2 /usr/bin/python \
+    && cd ivy \
+    && python build_submodules.py \
+    && sudo python setup.py install 
+
+# RUN sudo rm /usr/bin/python
+RUN pip2 install pyparsing ply tarjan pydot
+
+
+# RUN git clone https://github.com/dranov/ivy.git \
+#     && cd ivy \
+#     && git checkout 2to3new \
+#     && git submodule update --init \
+#     && python3 build_submodules.py \
+#     && sudo python3 setup.py install
+
+# RUN pip3 install pyparsing ply tarjan pydot
+# RUN sudo apt-get install -y graphviz && sudo apt-get clean
+
+# ivy (Python 3)
+# WORKDIR ${USER_HOME}
+# RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC sudo -E apt-get -y install tzdata
+# RUN sudo apt-get install --no-install-recommends --yes \
+#     g++ cmake python3-ply python3-tk tix libssl-dev python3-setuptools \
+#     libreadline-dev python3-pyparsing python-is-python3 \
+#     && sudo apt-get clean
+
+# RUN git clone https://github.com/dranov/ivy.git \
+#     && cd ivy \
+#     && git checkout 2to3new \
+#     && git submodule update --init \
+#     && python3 build_submodules.py \
+#     && sudo python3 setup.py install
+
+# RUN pip3 install pyparsing ply tarjan pydot
+# RUN sudo apt-get install -y graphviz && sudo apt-get clean
 # ENV PYTHONPATH=/home/${USERNAME}/ivy/:/home/${USERNAME}/ivy/ivy/
 
