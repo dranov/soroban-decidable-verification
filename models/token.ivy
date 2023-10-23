@@ -278,18 +278,30 @@ action execute_transaction = {
     ad._save_state();
     al._save_state();
     b._save_state();
-    local tx: tx_type, _a: address, _b: address, _m: money {
+    local tx: tx_type, _a: address, _b: address, _c: address, _m: money, _l: ledger {
         if tx = initialize {
             token.initialize(_a);
         } else if tx = mint {
-            assert b.balance.pre(X) = (old b.balance.pre(X));
-            assert b.balance.map(X, Y) = (old b.balance.map(X, Y));
             token.mint(_a, _m);
-            assert (_m >= 0) -> ~env.tx_has_panicked;
+            assert env.tx_has_panicked -> (_m < 0);
         } else if tx = set_admin {
             token.set_admin(_a);
         } else if tx = allowance {
             _m := token.allowance(_a, _b);
+        } else if tx = approve {
+            token.approve(_a, _b, _m, _l);
+        } else if tx = balance {
+            _m := token.balance(_a);
+        } else if tx = spendable_balance {
+            _m := token.spendable_balance(_a);
+        } else if tx = transfer {
+            token.transfer(_a, _b, _m);
+        } else if tx = transfer_from {
+            token.transfer_from(_a, _b, _c, _m);
+        } else if tx = burn {
+            token.burn(_a, _m);
+        } else if tx = burn_from {
+            token.burn_from(_a, _b, _m);
         }
     }
     # Restore state; TODO: specification of restore

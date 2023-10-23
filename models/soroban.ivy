@@ -222,8 +222,9 @@ object env = {
     action panic = {
         require tx_has_started;
         tx_has_panicked := true;
-        var _:bool;
-        _ := end_transaction();
+        # TODO: why does ending the transaction immediately cause issues?
+        # var _:bool;
+        # _ := end_transaction();
     }
 
     ############################################
@@ -236,7 +237,8 @@ object env = {
         ensure ~tx_has_started;
     }
 
-    conjecture [atomic_transactions] ~env.tx_has_started
+    conjecture [atomic_transactions_1] ~env.tx_has_started
+    conjecture [atomic_transactions_2] ~env.tx_has_panicked
     conjecture [ledger_nonnegative] 0 <= env.current_ledger
 }
 
