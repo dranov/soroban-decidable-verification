@@ -145,7 +145,7 @@ object b = {
             if balance < amount {
                 panic();
             }
-            write_balance(a, balance + amount)
+            write_balance(a, balance - amount)
         }
     }
 }
@@ -316,8 +316,12 @@ action execute_transaction = {
     }
 
     # Assertions about authorization
-    assert b.balance.map(O, M) ~= (old b.balance.map(O, M)) ->
-        exists F. env.auth_required(O, token._this, F);
+    assert b.balance.map(O, NM) & b.balance._map(O, M)
+        & NM < M # O's balance has decreased
+     -> (env.tx_has_panicked
+        | (exists F. env.auth_required(O, token._this, F))
+        | (exists X. (env.auth_required(X, token._this, _transfer_from) |
+            env.auth_required(X, token._this, _burn_from))));
 
     # Restore state; TODO: specification of restore
     var restore: bool;

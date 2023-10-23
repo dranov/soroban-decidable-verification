@@ -68,6 +68,7 @@ module partial_map(dom,rng) = {
         explicit invariant [img] pre(X) -> exists Y. map(X,Y)
     }
 
+    conjecture [mapping_preimage] map(K, V) -> pre(K)
     conjecture [functionality] map(K,L) & map(K,M) -> L = M
 
     trusted isolate iso = this
