@@ -173,23 +173,44 @@ instance ledger : unbounded_sequence
 # Environment #
 ###############
 
-object env = {
+module environment(function_identifier) = {
     individual current_ledger : ledger
 
     # Keeps track of the context of a transaction
     individual tx_has_started: bool
     individual tx_has_panicked: bool
 
+    # Authentication
+    relation contract_addresses(A: address)
+    # A must have authorized a call to contract C.F
+    relation auth_required(A: address, C: address, F: function_identifier)
+
     after init {
         current_ledger := 0;
         tx_has_started := false;
         tx_has_panicked := false;
+        contract_addresses(A) := false;
+        auth_required(A,C,F) := false;
+    }
+
+    ##################
+    # Authentication #
+    ##################
+
+    action _register_contract returns (a:address) = {
+        # every contract must have a unique address
+        assume ~contract_addresses(a);
+        contract_addresses(a) := true;
+    }
+
+    action require_auth(a: address, c: address, f: function_identifier) = {
+        auth_required(a, c, f) := true;
     }
 
     ##########################
     # Transaction management #
     ##########################
-    
+
     action new_transaction = {
         tx_has_started := false;
         tx_has_panicked := false;
@@ -237,14 +258,9 @@ object env = {
         ensure ~tx_has_started;
     }
 
+    export increase_ledger_sequence
+
     conjecture [atomic_transactions_1] ~env.tx_has_started
     conjecture [atomic_transactions_2] ~env.tx_has_panicked
     conjecture [ledger_nonnegative] 0 <= env.current_ledger
-}
-
-export env.increase_ledger_sequence
-
-# Rust
-action panic = {
-    call env.panic
 }
