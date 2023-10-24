@@ -27,4 +27,4 @@ conjecture [m_lt_irreflexive]
     forall X:money. ~(X < X)
 
 conjecture [wtf_1] 0:money = 0
-conjecture [wtf_2] 0:money < 0
+conjecture [wtf_2] 0:money <= 0

@@ -163,6 +163,95 @@ module unbounded_sequence = {
     isolate iso = impl,spec
 }
 
+module integer = {
+    type this
+    alias t = this
+
+    individual zero : t
+    relation succ(X:t,Y:t)
+
+    relation plus(X:t,Y:t,Z:t)
+    relation minus(X:t,Y:t,Z:t)
+
+    action next(x:t) returns (y:t)
+    action prev(x:t) returns (y:t)
+
+    # function (X:t + Y:t) : t
+    # function (X:t - Y:t) : t
+    # A function is a relation with [functionality] and [totality]
+    # axioms. We state the former and instantiate the latter on demand.
+    action add(x:t,y:t) returns (z:t)
+    action sub(x:t,y:t) returns (z:t)
+
+    action add_lemma(x:t,y:t)
+    action sub_lemma(x:t,y:t)
+
+    object spec = {
+        property [zero_eq_zero]
+            zero = 0
+
+        property [plus_functionality]
+            plus(X, Y, Z1) & plus(X, Y, Z2) -> Z1 = Z2
+        property [minus_functionality]
+            minus(X, Y, Z1) & minus(X, Y, Z2) -> Z1 = Z2
+
+        # Properties of addition
+        property [plus_commutative]
+            plus(X, Y, Z) -> plus(Y, X, Z)
+        property [plus_associative]
+            plus(A, B, AB) & plus (AB, C, ABC1) &
+            plus(B, C, BC) & plus(A, BC, ABC2) -> ABC1 = ABC2
+        property [plus_zero]
+            plus(zero, X, X)
+        property [plus_positive]
+            plus(X, Y, Z) & Y > 0 -> X < Z
+
+        # Properties of subtraction
+        property [minus_zero]
+            minus(X, zero, X)
+        property [minus_self]
+            minus(X, X, zero)
+
+        # Properties of order
+        property [transitivity] (T:t < U & U < V) -> (T < V)
+        property [antisymmetry] ~(T:t < U & U < T)
+        property [totality] T:t < U | T = U | U < T
+        property [succ_def] succ(X,Z) -> (X < Z & ~(X < Y & Y < Z))
+
+        implement add_lemma(x:t, y:t) {
+            assume exists Z. plus(x, y, Z);
+        }
+        implement sub_lemma(x:t, y:t) {
+            assume exists Z. minus(x, y, Z);
+        }
+
+        after add {
+            assume plus(x, y, z);
+        }
+        after sub {
+            assume minus(x, y, z);
+        }
+        after next {
+            assert x < y & (x < Y -> y <= Y);
+            assert succ(x,y)
+        }
+        after prev {
+            assert y < x & (Y < x -> Y <= y);
+            assert succ(y,x)
+        }
+
+    }
+
+    object impl = {
+        interpret t -> int
+        definition zero = 0
+        definition plus(X, Y, Z) = (Z = X + Y)
+        definition minus(X, Y, Z) = (Z = X - Y)
+        definition succ(X, Y) = (Y = X + 1)
+    }
+    isolate iso = impl,spec
+}
+
 ##########################
 # Stellar-specific types #
 ##########################
