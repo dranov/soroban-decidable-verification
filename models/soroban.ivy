@@ -168,13 +168,14 @@ module integer = {
     alias t = this
 
     individual zero : t
-    relation succ(X:t,Y:t)
+    individual one : t
+    # relation succ(X:t,Y:t)
 
     relation plus(X:t,Y:t,Z:t)
     relation minus(X:t,Y:t,Z:t)
 
-    action next(x:t) returns (y:t)
-    action prev(x:t) returns (y:t)
+    # action next(x:t) returns (y:t)
+    # action prev(x:t) returns (y:t)
 
     # function (X:t + Y:t) : t
     # function (X:t - Y:t) : t
@@ -187,8 +188,16 @@ module integer = {
     action sub_lemma(x:t,y:t)
 
     object spec = {
-        property [zero_eq_zero]
-            zero = 0
+        property [zero_eq_zero] zero = 0
+        property [one_eq_one] one = 1
+        property [zero_lt_one] zero < one
+
+        # Properties of the successor function
+        # property [succ_zero] succ(zero, one)
+        # property [succ_def1] succ(X,Z) -> (X < Z & ~(X < Y & Y < Z))
+        # These seem to cause efficiency/decidability issues
+        # property [succ_def2] (X < Z & ~(exists Y. X < Y & Y < Z)) -> succ(X,Z)
+        # property [succ_ex] exists Y. succ(X,Y)
 
         property [plus_functionality]
             plus(X, Y, Z1) & plus(X, Y, Z2) -> Z1 = Z2
@@ -211,12 +220,21 @@ module integer = {
             minus(X, zero, X)
         property [minus_self]
             minus(X, X, zero)
+        property [minus_plus]
+            minus(X, Y, Z) -> plus(Z, Y, X)
+        property [minus_gt_negative]
+            minus(X, Y, Z) & X < Y -> Z < 0
+
+        # These cause efficiency and/or decidability issues?
+        # property [plus_plus]
+        #     plus(X, Y, Z) <-> X + Y = Z
+        # property [minus_minus]
+        #     minus(X, Y, Z) <-> X - Y = Z
 
         # Properties of order
         property [transitivity] (T:t < U & U < V) -> (T < V)
         property [antisymmetry] ~(T:t < U & U < T)
         property [totality] T:t < U | T = U | U < T
-        property [succ_def] succ(X,Z) -> (X < Z & ~(X < Y & Y < Z))
 
         implement add_lemma(x:t, y:t) {
             assume exists Z. plus(x, y, Z);
@@ -226,28 +244,34 @@ module integer = {
         }
 
         after add {
+            call add_lemma(x, y);
+            call sub_lemma(z, x);
+            call sub_lemma(z, y);
             assume plus(x, y, z);
         }
         after sub {
+            call sub_lemma(x, y);
+            call add_lemma(z, y);
             assume minus(x, y, z);
         }
-        after next {
-            assert x < y & (x < Y -> y <= Y);
-            assert succ(x,y)
-        }
-        after prev {
-            assert y < x & (Y < x -> Y <= y);
-            assert succ(y,x)
-        }
+        # after next {
+        #     assert x < y & (x < Y -> y <= Y);
+        #     assert succ(x,y)
+        # }
+        # after prev {
+        #     assert y < x & (Y < x -> Y <= y);
+        #     assert succ(y,x)
+        # }
 
     }
 
     object impl = {
         interpret t -> int
         definition zero = 0
+        definition one = 1
         definition plus(X, Y, Z) = (Z = X + Y)
         definition minus(X, Y, Z) = (Z = X - Y)
-        definition succ(X, Y) = (Y = X + 1)
+        # definition succ(X, Y) = (Y = X + 1)
     }
     isolate iso = impl,spec
 }
