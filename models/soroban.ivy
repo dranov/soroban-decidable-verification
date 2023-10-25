@@ -169,13 +169,22 @@ module integer = {
 
     individual zero : t
     individual one : t
-    # relation succ(X:t,Y:t)
 
+    relation lt(X:t,Y:t)
     relation plus(X:t,Y:t,Z:t)
     relation minus(X:t,Y:t,Z:t)
 
-    # action next(x:t) returns (y:t)
-    # action prev(x:t) returns (y:t)
+    # Derived relations
+    # FIXME: there's some breakage if we use the definition facility
+    # rather, we have the *_def properties to achieve the same thing
+    # this is probably a bug in Ivy
+    relation lte(X:t, Y:t)# = lt(X, Y) | X = Y
+    relation gt(X:t, Y:t)# = ~lt(X, Y) & X ~= Y  # i.e. ~lte(X, Y)
+    relation gte(X:t, Y:t)# = ~lt(X, Y)
+    relation succ(X:t, Y:t)# = plus(X, one, Y)
+
+    action next(x:t) returns (y:t)
+    action prev(x:t) returns (y:t)
 
     # function (X:t + Y:t) : t
     # function (X:t - Y:t) : t
@@ -188,17 +197,23 @@ module integer = {
     action sub_lemma(x:t,y:t)
 
     object spec = {
-        property [zero_eq_zero] zero = 0
-        property [one_eq_one] one = 1
-        property [zero_lt_one] zero < one
+        property [zero_neq_one] ~(zero = one)
+        property [zero_one] 
+            lt(zero, one) & ~exists X. lt(zero, X) & lt(X, one)
 
-        # Properties of the successor function
-        # property [succ_zero] succ(zero, one)
-        # property [succ_def1] succ(X,Z) -> (X < Z & ~(X < Y & Y < Z))
-        # These seem to cause efficiency/decidability issues
-        # property [succ_def2] (X < Z & ~(exists Y. X < Y & Y < Z)) -> succ(X,Z)
-        # property [succ_ex] exists Y. succ(X,Y)
+        # Derived relations
+        property [lte_def] lte(X, Y) <-> lt(X, Y) | X = Y
+        property [gt_def] gt(X, Y) <-> ~lt(X, Y) & X ~= Y
+        property [gte_def] gte(X, Y) <-> ~lt(X, Y)
+        property [succ_def] succ(X, Y) <-> plus(X, one, Y)
 
+        # Properties of order
+        property [transitivity] lt(T,U) & lt(U,V) -> lt(T,V)
+        property [antisymmetry] ~(lt(T,U) & lt(U,T))
+        property [totality] lt(T,U) | T = U | lt(U,T)
+        property [irreflexivity] ~lt(T,T) # implied by the above
+
+        # Functionality (without totality)
         property [plus_functionality]
             plus(X, Y, Z1) & plus(X, Y, Z2) -> Z1 = Z2
         property [minus_functionality]
@@ -213,7 +228,7 @@ module integer = {
         property [plus_zero]
             plus(zero, X, X)
         property [plus_positive]
-            plus(X, Y, Z) & Y > 0 -> X < Z
+            plus(X, Y, Z) & gt(Y, zero) -> lt(X, Z)
 
         # Properties of subtraction
         property [minus_zero]
@@ -223,18 +238,7 @@ module integer = {
         property [minus_plus]
             minus(X, Y, Z) -> plus(Z, Y, X)
         property [minus_gt_negative]
-            minus(X, Y, Z) & X < Y -> Z < 0
-
-        # These cause efficiency and/or decidability issues?
-        # property [plus_plus]
-        #     plus(X, Y, Z) <-> X + Y = Z
-        # property [minus_minus]
-        #     minus(X, Y, Z) <-> X - Y = Z
-
-        # Properties of order
-        property [transitivity] (T:t < U & U < V) -> (T < V)
-        property [antisymmetry] ~(T:t < U & U < T)
-        property [totality] T:t < U | T = U | U < T
+            minus(X, Y, Z) & lt(X, Y) -> lt(Z, zero)
 
         implement add_lemma(x:t, y:t) {
             assume exists Z. plus(x, y, Z);
@@ -254,24 +258,30 @@ module integer = {
             call add_lemma(z, y);
             assume minus(x, y, z);
         }
-        # after next {
-        #     assert x < y & (x < Y -> y <= Y);
-        #     assert succ(x,y)
-        # }
-        # after prev {
-        #     assert y < x & (Y < x -> Y <= y);
-        #     assert succ(y,x)
-        # }
-
+        after next {
+            assert plus(x, one, y);
+            assert minus(y, one, x);
+        }
+        after prev {
+            assert minus(x, one, y);
+            assert plus(y, one, x);
+        }
     }
 
     object impl = {
         interpret t -> int
         definition zero = 0
         definition one = 1
+        definition lt(X, Y) = (X < Y)
         definition plus(X, Y, Z) = (Z = X + Y)
         definition minus(X, Y, Z) = (Z = X - Y)
-        # definition succ(X, Y) = (Y = X + 1)
+
+        # Derived relations
+        # FIXME: see the problem above with derived relations
+        definition lte(X, Y) = (X <= Y)
+        definition gt(X, Y) = (X > Y)
+        definition gte(X, Y) = (X >= Y)
+        definition succ(X, Y) = (Y = X + 1)
     }
     isolate iso = impl,spec
 }

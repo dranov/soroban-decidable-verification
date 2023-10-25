@@ -15,16 +15,15 @@ action _save_restore_roundtrip = {
 }
 export _save_restore_roundtrip
 
-conjecture [succ_lt] ledger.succ(X, Y) -> X < Y
+conjecture [succ_lt] ledger.succ(X, Y) -> X:ledger < Y
 
 instance money : integer
-conjecture [m_succ_lt] money.succ(X, Y) -> X < Y
+conjecture [m_succ_lt] money.succ(X, Y) -> money.lt(X, Y)
 conjecture [m_lteq_def]
     forall X:money, Y:money.
-        X <= Y <-> (X < Y | X = Y)
+        money.lte(X, Y) <-> (money.lt(X, Y) | X = Y)
 
 conjecture [m_lt_irreflexive]
-    forall X:money. ~(X < X)
+    forall X:money. ~money.lt(X, X)
 
-conjecture [wtf_1] 0:money = 0
-conjecture [wtf_2] 0:money <= 0
+conjecture [wtf_2] money.lte(money.zero, money.zero)
