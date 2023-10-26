@@ -26,4 +26,5 @@ conjecture [m_lteq_def]
 conjecture [m_lt_irreflexive]
     forall X:money. ~money.lt(X, X)
 
-conjecture [wtf_2] money.lte(money.zero, money.zero)
+conjecture [lte_zero] money.lte(money.zero, money.zero)
+conjecture [ex_minus_one] exists X:money. money.succ(X, money.zero)

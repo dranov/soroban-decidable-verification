@@ -2,15 +2,7 @@
 
 include soroban
 
-# instance money : integer
-type money
-interpret money -> int
-# fragment checker complains if money -> int, so run `ivy_check complete=fo`
-# alternative to this interpretation is to add some facts about + and -
-# e.g. a + b >= a if b >= 0 etc.
-
-function (X:money + Y:money) : money
-function (X:money - Y:money) : money
+instance money : interpreted_integer
 
 type allowance_key = struct {
     owner : address,
@@ -63,13 +55,13 @@ object al = {
             if allowance.has(key) {
                 v := allowance.get(key);
                 if v.expiration_ledger < env.get_ledger_sequence() {
-                    v.amount := 0;
+                    v.amount := money.zero;
                     res := v
                 } else {
                     res := v;
                 }
             } else {
-                    v.amount := 0;
+                    v.amount := money.zero;
                     v.expiration_ledger := 0;
                     res := v
             }
@@ -81,7 +73,7 @@ object al = {
             v.amount := amount;
             v.expiration_ledger := expiration_ledger;
 
-            if amount > 0 & expiration_ledger < env.get_ledger_sequence() {
+            if money.gt(amount, money.zero) & expiration_ledger < env.get_ledger_sequence() {
                 panic();
             }
 
@@ -91,7 +83,7 @@ object al = {
                 # FIXME: model temporary storage
                 allowance.set(key, v);
 
-                if amount > 0 {
+                if money.gt(amount, money.zero) {
                     # FIXME: model temporary storage
                     # bump entry TTL
                 }
@@ -102,10 +94,10 @@ object al = {
     action spend_allowance(owner : address, spender : address, amount : money) = {
         local v: allowance_value {
             v := read_allowance(owner, spender);
-            if v.amount < amount {
+            if money.lt(v.amount, amount) {
                 panic();
             }
-            write_allowance(owner, spender, v.amount - amount, v.expiration_ledger);
+            write_allowance(owner, spender, money.sub(v.amount, amount), v.expiration_ledger);
         }
     }
 }
@@ -124,7 +116,7 @@ object b = {
         if balance.has(a) {
             res := balance.get(a)
         } else {
-            res := 0
+            res := money.zero
         }
     }
 
@@ -135,17 +127,17 @@ object b = {
     action receive_balance(a : address, amount : money) = {
         local balance : money {
             balance := read_balance(a);
-            write_balance(a, balance + amount)
+            write_balance(a, money.add(balance, amount))
         }
     }
 
     action spend_balance(a : address, amount : money) = {
         local balance : money {
             balance := read_balance(a);
-            if balance < amount {
+            if money.lt(balance, amount) {
                 panic();
             }
-            write_balance(a, balance - amount)
+            write_balance(a, money.sub(balance, amount))
         }
     }
 }
@@ -161,7 +153,7 @@ object token = {
     }
 
     action check_nonnegative_amount(amount : money) = {
-        if amount < 0 {
+        if money.lt(amount, money.zero) {
             panic()
         }
     }
@@ -293,7 +285,7 @@ action execute_transaction = {
             token.initialize(_a);
         } else if tx = _mint {
             token.mint(_a, _m);
-            assert env.tx_has_panicked -> (_m < 0);
+            assert env.tx_has_panicked -> money.lt(_m, money.zero);
         } else if tx = _set_admin {
             token.set_admin(_a);
         } else if tx = _allowance {
@@ -317,7 +309,7 @@ action execute_transaction = {
 
     # Assertions about authorization
     assert b.balance.map(O, NM) & b.balance._map(O, M)
-        & NM < M # O's balance has decreased
+        & money.lt(NM, M) # O's balance has decreased
      -> (env.tx_has_panicked
         | (exists F. env.auth_required(O, token._this, F))
         | (exists X. (env.auth_required(X, token._this, _transfer_from) |
@@ -338,4 +330,4 @@ export execute_transaction
 
 conjecture [all_balances_positive]
     forall A, V.
-        b.balance.pre(A) & b.balance.map(A, V) -> V >= 0
+        b.balance.pre(A) & b.balance.map(A, V) -> money.gte(V, money.zero)
