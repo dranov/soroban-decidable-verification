@@ -1,0 +1,108 @@
+#lang ivy1.8
+
+include soroban
+instance money : integer
+
+object b = {
+    instance balance : partial_map(address, money)
+    action _save_state = {
+        balance._save_state()
+    }
+    action _restore_state = {
+        balance._restore_state()
+    }
+
+    action read_balance(a : address) returns (res : money) = {
+        if balance.has(a) {
+            res := balance.get(a)
+        } else {
+            res := money.zero
+        }
+    }
+
+    action write_balance(a : address, amount : money) = {
+        balance.set(a, amount)
+    }
+
+    action receive_balance(a : address, amount : money) = {
+        local balance : money {
+            balance := read_balance(a);
+            write_balance(a, money.add(balance, amount))
+        }
+    }
+
+    action spend_balance(a : address, amount : money) = {
+        local balance : money {
+            balance := read_balance(a);
+            if money.lt(balance, amount) {
+                panic();
+            }
+            write_balance(a, money.sub(balance, amount))
+        }
+    }
+}
+
+object token = {
+    individual _this : address
+    after init {
+        _this := env._register_contract();
+    }
+
+    action check_nonnegative_amount(amount : money) = {
+        if money.lt(amount, money.zero) {
+            panic()
+        }
+    }
+
+    action increment(a : address) = {
+        b.receive_balance(a, money.one)
+    }
+
+    action decrement(a: address) = {
+        env.require_auth(a, _this, _decrement);
+        b.spend_balance(a, money.one)
+    }
+}
+
+type function_identifier = {
+    _increment,
+    _decrement
+}
+instance env : environment(function_identifier)
+action panic = {
+    call env.panic
+}
+
+action execute_transaction = {
+    env.begin_transaction();
+    # Save state
+    b._save_state();
+    local tx: function_identifier, _a: address {
+        if tx = _increment {
+            token.increment(_a)
+        }
+        else if tx = _decrement {
+            token.decrement(_a)
+        }
+    }
+    # Assertions about authorization
+    # Assertions about authorization
+    assert b.balance.map(O, NM) & b.balance._map(O, M)
+        & money.lt(NM, M) # O's balance has decreased
+     -> (env.tx_has_panicked
+        | env.auth_required(O, token._this, _decrement));
+
+    # Restore state on panic
+    var restore: bool;
+    restore := env.end_transaction();
+    if restore {
+        b._restore_state();
+        assert b.balance.pre(X) = (old b.balance.pre(X));
+        assert b.balance.map(X, Y) = (old b.balance.map(X, Y));
+    }
+}
+
+export execute_transaction
+conjecture [all_balances_positive]
+    forall A, V.
+        b.balance.pre(A) & b.balance.map(A, V) -> money.gte(V, money.zero)

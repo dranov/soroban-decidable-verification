@@ -2,7 +2,7 @@
 
 include soroban
 
-instance money : interpreted_integer
+instance money : integer
 
 type allowance_key = struct {
     owner : address,

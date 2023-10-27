@@ -47,6 +47,8 @@ module integer = {
         property [gt_def] gt(X, Y) <-> ~lt(X, Y) & X ~= Y
         property [gte_def] gte(X, Y) <-> ~lt(X, Y)
         property [succ_def] succ(X, Y) <-> plus(X, one, Y)
+        property [succ_not_opposite]
+            succ(X, Y) -> ~(plus(X, Y, zero) & minus(zero, X, Y))
 
         # Properties of order
         property [transitivity] lt(T,U) & lt(U,V) -> lt(T,V)
@@ -78,8 +80,10 @@ module integer = {
             minus(X, X, zero)
         property [minus_plus]
             minus(X, Y, Z) -> plus(Z, Y, X)
-        property [minus_gt_negative]
+        property [minus_lt]
             minus(X, Y, Z) & lt(X, Y) -> lt(Z, zero)
+        property [minus_gte] # a version of the above with ~lt(X, Y)
+            minus(X, Y, Z) & gte(X, Y) -> gte(Z, zero)
 
         # These properties cause decidability issues
         # property [every_number_has_negative]
@@ -89,15 +93,15 @@ module integer = {
         # Derived facts #
         #################
         # The properties are sufficient to establish:
-        property [succ_distinct] succ(X, Y) -> X ~= Y
-        property [constants_distinct] ~(zero = one) & ~(minus_one = zero) & ~(minus_one = one)
-        property [minus_one_cancel]
-            plus(minus_one, one, zero) & minus(zero, minus_one, one) & minus(zero, one, minus_one)
-        property [succ_eq] succ(X, Z) & succ(Y, Z) -> X = Y
-        property [succ_no_gaps]
-            succ(X, Y) -> ~exists Z.  lt(X, Z) & lt(Z, Y)
-        property [no_gaps_succ]
-            lt(X, Y) & (~exists Z.  lt(X, Z) & lt(Z, Y)) -> succ(X, Y)
+        # conjecture [succ_distinct] succ(X, Y) -> X ~= Y
+        # conjecture [constants_distinct] ~(zero = one) & ~(minus_one = zero) & ~(minus_one = one)
+        # conjecture [minus_one_cancel]
+        #     plus(minus_one, one, zero) & minus(zero, minus_one, one) & minus(zero, one, minus_one)
+        # conjecture [succ_eq] succ(X, Z) & succ(Y, Z) -> X = Y
+        # conjecture [succ_no_gaps]
+        #     succ(X, Y) -> ~exists Z.  lt(X, Z) & lt(Z, Y)
+        # conjecture [no_gaps_succ]
+        #     lt(X, Y) & (~exists Z.  lt(X, Z) & lt(Z, Y)) -> succ(X, Y)
 
         ##########################
         # Action implementations #
