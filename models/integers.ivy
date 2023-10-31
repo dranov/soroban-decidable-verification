@@ -118,13 +118,13 @@ module integer = {
         }
 
         after add {
-            call add_lemma(x, y); call sub_lemma(z, x); call sub_lemma(z, y);
-            call opposite_lemma(x); call opposite_lemma(y); call opposite_lemma(z);
+            # call add_lemma(x, y); call sub_lemma(z, x); call sub_lemma(z, y);
+            # call opposite_lemma(x); call opposite_lemma(y); call opposite_lemma(z);
             assume plus(x, y, z);
         }
         after sub {
-            call sub_lemma(x, y); call add_lemma(z, y);
-            call opposite_lemma(x); call opposite_lemma(y); call opposite_lemma(z);
+            # call sub_lemma(x, y); call add_lemma(z, y);
+            # call opposite_lemma(x); call opposite_lemma(y); call opposite_lemma(z);
             assume minus(x, y, z);
         }
         after next {
