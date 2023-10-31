@@ -305,15 +305,38 @@ action execute_transaction = {
         } else if tx = _burn_from {
             token.burn_from(_a, _b, _m);
         }
-    }
+
 
     # Assertions about authorization
+    # (1) All balance-decreasing operations require authorization
     assert b.balance.map(O, NM) & b.balance._map(O, M)
         & money.lt(NM, M) # O's balance has decreased
      -> (env.tx_has_panicked
         | (exists F. env.auth_required(O, token._this, F))
         | (exists X. (env.auth_required(X, token._this, _transfer_from) |
             env.auth_required(X, token._this, _burn_from))));
+
+    # (2) transfer_from and burn_from have been previously approved
+    # and authorized by the owner of the balance
+    assert ~env.tx_has_panicked
+        & b.balance.map(O, NM) & b.balance._map(O, M)
+        & money.lt(NM, M) # O's balance has decreased
+        & money.minus(M, NM, A) # A is the amount transfered
+        & (tx = _transfer_from | tx = _burn_from)
+        -> ((exists X. (env.auth_required(X, token._this, _transfer_from) |
+                        env.auth_required(X, token._this, _burn_from))
+            & env.historical_auth_required(O, token._this, _approve)) # there was an approval
+            # FIXME: this doesn't work; we should make Ivy print post-states
+            # with trace=true to make it easier to debug what's going on
+            # & (forall AK:allowance_key, AV:allowance_value, NAV:allowance_value.
+            #     al.allowance.map(AK, NAV) & al.allowance._map(AK, AV)
+            #     & AK.owner = O # there was an allowance from O
+            #     # NOTE: if we want to say allowance from O to X, no longer in FAU
+            #     & money.gte(AV.amount, A) # allowance was sufficient
+            #     & money.minus(AV.amount, NAV.amount, A) # and decreases by the amount transfered (A)
+            #  )
+        );
+    }
 
     # Restore state; TODO: specification of restore
     var restore: bool;
@@ -328,6 +351,15 @@ action execute_transaction = {
 }
 export execute_transaction
 
-conjecture [all_balances_positive]
+invariant [all_balances_positive]
     forall A, V.
         b.balance.pre(A) & b.balance.map(A, V) -> money.gte(V, money.zero)
+
+invariant [all_allowances_positive]
+    forall AK:allowance_key, AV:allowance_value.
+        al.allowance.pre(AK) & al.allowance.map(AK, AV) -> money.gte(AV.amount, money.zero)
+
+invariant [allowance_implies_authorization]
+    forall AK:allowance_key, AV:allowance_value.
+        al.allowance.pre(AK) & al.allowance.map(AK, AV) & money.gt(AV.amount, money.zero)
+        -> env.historical_auth_required(AK.owner, token._this, _approve)

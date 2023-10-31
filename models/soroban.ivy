@@ -185,8 +185,12 @@ module environment(function_identifier) = {
 
     # Authentication
     relation contract_addresses(A: address)
+    # TODO: we probably want to model arguments to functions
     # A must have authorized a call to contract C.F
+    # This is cleared at the beginning/end of every transaction
     relation auth_required(A: address, C: address, F: function_identifier)
+    # This is not cleared and is used to refer to past/historical authorizations
+    relation historical_auth_required(A: address, C: address, F: function_identifier)
 
     after init {
         current_ledger := 0;
@@ -194,6 +198,7 @@ module environment(function_identifier) = {
         tx_has_panicked := false;
         contract_addresses(A) := false;
         auth_required(A,C,F) := false;
+        historical_auth_required(A,C,F) := false;
     }
 
     ##################
@@ -208,6 +213,7 @@ module environment(function_identifier) = {
 
     action require_auth(a: address, c: address, f: function_identifier) = {
         auth_required(a, c, f) := true;
+        historical_auth_required(a, c, f) := true;
     }
 
     ##########################
@@ -217,6 +223,7 @@ module environment(function_identifier) = {
     action new_transaction = {
         tx_has_started := false;
         tx_has_panicked := false;
+        auth_required(A,C,F) := false;
     }
     
     action begin_transaction = {
@@ -265,5 +272,6 @@ module environment(function_identifier) = {
 
     conjecture [atomic_transactions_1] ~env.tx_has_started
     conjecture [atomic_transactions_2] ~env.tx_has_panicked
+    conjecture [atomic_transactions_3] ~env.auth_required(A, C, F)
     conjecture [ledger_nonnegative] 0 <= env.current_ledger
 }
