@@ -79,7 +79,7 @@ module integer = {
         property [minus_self]
             minus(X, X, zero)
         property [minus_plus]
-            minus(X, Y, Z) -> plus(Z, Y, X)
+            minus(X, Y, Z) <-> plus(Z, Y, X)
         property [minus_lt]
             minus(X, Y, Z) & lt(X, Y) -> lt(Z, zero)
         property [minus_gte] # a version of the above with ~lt(X, Y)
