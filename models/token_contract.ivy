@@ -1,0 +1,258 @@
+#lang ivy1.8
+
+include soroban
+
+instance money : integer
+
+type allowance_key = struct {
+    owner : address,
+    spender : address
+}
+
+type allowance_value = struct {
+    amount : money,
+    expiration_ledger : ledger
+}
+
+module token_contract = {
+    # admin.rs
+    object ad = {
+        instance a : singleton(address)
+        action _save_state = {
+            a._save_state()
+        }
+        action _restore_state = {
+            a._restore_state()
+        }
+
+        action has_administrator returns (res : bool) = {
+            res := a.has()
+        }
+
+        action read_administrator returns (res : address) = {
+            res := a.get()
+        }
+
+        action write_administrator(new_admin : address) = {
+            a.set(new_admin)
+        }
+    }
+
+    # allowance.rs
+    object al = {
+        # FIXME: this is temporary storage
+        instance allowance : partial_map(allowance_key, allowance_value)
+        action _save_state = {
+            allowance._save_state()
+        }
+        action _restore_state = {
+            allowance._restore_state()
+        }
+
+        action read_allowance(owner : address, spender : address) returns (res : allowance_value) = {
+            local key: allowance_key, v: allowance_value {
+                key.owner := owner;
+                key.spender := spender;
+                if allowance.has(key) {
+                    v := allowance.get(key);
+                    if v.expiration_ledger < env.get_ledger_sequence() {
+                        v.amount := money.zero;
+                        res := v
+                    } else {
+                        res := v;
+                    }
+                } else {
+                        v.amount := money.zero;
+                        v.expiration_ledger := 0;
+                        res := v
+                }
+            }
+        }
+
+        action write_allowance(owner : address, spender : address, amount : money, expiration_ledger : ledger) = {
+            local v: allowance_value {
+                v.amount := amount;
+                v.expiration_ledger := expiration_ledger;
+
+                if money.gt(amount, money.zero) & expiration_ledger < env.get_ledger_sequence() {
+                    panic();
+                }
+
+                local key: allowance_key {
+                    key.owner := owner;
+                    key.spender := spender;
+                    # FIXME: model temporary storage
+                    allowance.set(key, v);
+
+                    if money.gt(amount, money.zero) {
+                        # FIXME: model temporary storage
+                        # bump entry TTL
+                    }
+                }
+            }
+        }
+
+        action spend_allowance(owner : address, spender : address, amount : money) = {
+            local v: allowance_value {
+                v := read_allowance(owner, spender);
+                if money.lt(v.amount, amount) {
+                    panic();
+                }
+                write_allowance(owner, spender, money.sub(v.amount, amount), v.expiration_ledger);
+            }
+        }
+    }
+
+    # balance.rs
+    object b = {
+        instance balance : partial_map(address, money)
+        action _save_state = {
+            balance._save_state()
+        }
+        action _restore_state = {
+            balance._restore_state()
+        }
+
+        action read_balance(a : address) returns (res : money) = {
+            if balance.has(a) {
+                res := balance.get(a)
+            } else {
+                res := money.zero
+            }
+        }
+
+        action write_balance(a : address, amount : money) = {
+            balance.set(a, amount)
+        }
+
+        action receive_balance(a : address, amount : money) = {
+            local balance : money {
+                balance := read_balance(a);
+                write_balance(a, money.add(balance, amount))
+            }
+        }
+
+        action spend_balance(a : address, amount : money) = {
+            local balance : money {
+                balance := read_balance(a);
+                if money.lt(balance, amount) {
+                    panic();
+                }
+                write_balance(a, money.sub(balance, amount))
+            }
+        }
+    }
+
+    # TODO: should the above (admin, al, b) be modules instead of objects?
+    # TODO: metadata.rs
+
+    # TODO: should we define a contract module?
+    object token = {
+        individual _this : address
+        after init {
+            _this := env._register_contract();
+        }
+
+        action check_nonnegative_amount(amount : money) = {
+            if money.lt(amount, money.zero) {
+                panic()
+            }
+        }
+
+        action initialize(admin: address) = {
+            if ad.has_administrator() {
+                panic()
+            }
+            ad.write_administrator(admin)
+            # TODO: metadata
+        }
+
+        action mint(to : address, amount : money) = {
+            check_nonnegative_amount(amount);
+            local admin: address {
+                admin := ad.read_administrator();
+                env.require_auth(admin, _this, _mint);
+                # FIXME: instance storage bump
+                b.receive_balance(to, amount)
+                # FIXME: env events
+            }
+        }
+
+        action set_admin(new_admin : address) = {
+            local admin: address {
+                admin := ad.read_administrator();
+                env.require_auth(admin, _this, _set_admin);
+                # FIXME: instance storage bump
+                ad.write_administrator(new_admin)
+                # FIXME: env events
+            }
+        }
+
+        #############
+        # INTERFACE #
+        #############
+        action allowance(owner : address, spender : address) returns (res : money) = {
+            # FIXME: instance storage bump
+            local allowance : allowance_value {
+                allowance := al.read_allowance(owner, spender);
+                res := allowance.amount
+            }
+        }
+
+        action approve(owner : address, spender : address, amount : money, expiration_ledger : ledger) = {  
+            env.require_auth(owner, _this, _approve);
+            check_nonnegative_amount(amount);
+            # FIXME: instance storage bump
+            al.write_allowance(owner, spender, amount, expiration_ledger)
+            # FIXME: env events
+        }
+
+        action balance(id: address) returns (res: money) = {
+            # FIXME: instance storage bump
+            res := b.read_balance(id)
+        }
+
+        action spendable_balance(id: address) returns (res: money) = {
+            # FIXME: instance storage bump
+            res := b.read_balance(id)
+        }
+
+        action transfer(owner : address, to : address, amount : money) = {
+            env.require_auth(owner, _this, _transfer);
+            check_nonnegative_amount(amount);
+            # FIXME: instance storage bump
+            b.spend_balance(owner, amount);
+            b.receive_balance(to, amount);
+            # FIXME: env events
+        }
+
+        action transfer_from(spender : address, owner : address, to : address, amount : money) = {
+            env.require_auth(spender, _this, _transfer_from);
+            check_nonnegative_amount(amount);
+            # FIXME: instance storage bump
+            al.spend_allowance(owner, spender, amount);
+            b.spend_balance(owner, amount);
+            b.receive_balance(to, amount);
+            # FIXME: env events
+        }
+
+        action burn(owner : address, amount : money) = {
+            env.require_auth(owner, _this, _burn);
+            check_nonnegative_amount(amount);
+            # FIXME: instance storage bump
+            b.spend_balance(owner, amount);
+            # FIXME: env events
+        }
+
+        action burn_from(spender : address, owner : address, amount : money) = {
+            env.require_auth(spender, _this, _burn_from);
+            check_nonnegative_amount(amount);
+            # FIXME: instance storage bump
+            al.spend_allowance(owner, spender, amount);
+            b.spend_balance(owner, amount);
+            # FIXME: env events
+        }
+
+        # TODO: metadata: decimals, name, symbol
+    }
+}
