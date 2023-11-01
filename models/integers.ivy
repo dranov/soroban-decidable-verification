@@ -23,6 +23,13 @@ module decidable_integer = {
     relation gte(X:t, Y:t)# = ~lt(X, Y)
     relation succ(X:t, Y:t)# = plus(X, one, Y)
 
+    # FIXME: we really want to fix the definition facility for sqrt
+    # y = sqrt(x) <-> y^2 <= x < (y+1)^2
+    relation isqrt(X:t, Y:t)# = 
+        # gt(X, zero) & gt(Y, zero)
+        # & exists YY. mult(Y, Y, YY) & lte(YY, X)
+        # & exists Y1, YY1. succ(Y, Y1) & mult(Y1, Y1, YY1) & lt(X, YY1)
+
     action next(x:t) returns (y:t)
     action prev(x:t) returns (y:t)
 
@@ -34,6 +41,9 @@ module decidable_integer = {
     action sub(x:t,y:t) returns (z:t)
     action mul(x:t,y:t) returns (z:t)
     action div(x:t,y:t) returns (z:t)
+
+    action min(x:t,y:t) returns (z:t)
+    action max(x:t,y:t) returns (z:t)
 
     action opposite_lemma(x:t) # -x exists and x + (-x) = 0
     action add_lemma(x:t,y:t)  # x + y exists
@@ -53,6 +63,13 @@ module decidable_integer = {
         property [succ_def] succ(X, Y) <-> plus(X, one, Y)
         property [succ_not_opposite]
             succ(X, Y) -> ~(plus(X, Y, zero) & minus(zero, X, Y))
+        # FIXME: error: Solver produced inconclusive result
+        property [isqrt_def]
+            isqrt(X, Y) <-> (
+                gte(X, zero) & gte(Y, zero)
+                & exists YY. mult(Y, Y, YY) & lte(YY, X)
+                & exists Y1, YY1. succ(Y, Y1) & mult(Y1, Y1, YY1) & lt(X, YY1)
+            )
 
         # Properties of order
         property [transitivity] lt(T,U) & lt(U,V) -> lt(T,V)
@@ -160,6 +177,20 @@ module decidable_integer = {
         after div {
             assume divi(x, y, z);
         }
+        after min {
+            if lt(x, y) {
+                assume z = x;
+            } else {
+                assume z = y;
+            }
+        }
+        after max {
+            if gt(x, y) {
+                assume z = x;
+            } else {
+                assume z = y;
+            }
+        }
         after next {
             assert plus(x, one, y);
             assert minus(y, one, x);
@@ -181,6 +212,13 @@ module decidable_integer = {
         definition mult(X, Y, Z) = (Z = X * Y)
         definition divi(X, Y, Z) = (Z = X / Y)
 
+        # FIXME: we cannot verify this
+        # error: Solver produced inconclusive result
+        # y = sqrt(x) <-> y^2 <= x < (y+1)^2
+        definition isqrt(X, Y) = 
+            (X >= 0) & (Y >= 0)
+            & (Y * Y <= X) & (X < (Y + 1) * (Y + 1))
+        
         # Derived relations
         # FIXME: see the problem above with derived relations
         definition lte(X, Y) = (X <= Y)
@@ -204,12 +242,13 @@ module interpreted_integer = {
     relation lt(X:t,Y:t) = X < Y
     relation plus(X:t,Y:t,Z:t) = Z = X + Y
     relation minus(X:t,Y:t,Z:t) = Z = X - Y
-    relation mult(X, Y, Z) = (Z = X * Y)
-    relation divi(X, Y, Z) = (Z = X / Y)
+    relation mult(X:t,Y:t,Z:t) = (Z = X * Y)
+    relation divi(X:t,Y:t,Z:t) = (Z = X / Y)
     relation lte(X:t, Y:t) = X <= Y
     relation gt(X:t, Y:t) = X > Y
     relation gte(X:t, Y:t) = X >= Y
     relation succ(X:t, Y:t) = Y = X + 1
+    
 
     action next(x:t) returns (y:t)
     action prev(x:t) returns (y:t)
@@ -218,6 +257,11 @@ module interpreted_integer = {
     action sub(x:t,y:t) returns (z:t)
     action mul(x:t,y:t) returns (z:t)
     action div(x:t,y:t) returns (z:t)
+
+    action sqrt(x:t) returns (y:t)
+
+    action min(x:t,y:t) returns (z:t)
+    action max(x:t,y:t) returns (z:t)
 
     object spec = {
         property [minus_one_def] minus_one = 0 - 1
@@ -241,6 +285,24 @@ module interpreted_integer = {
         }
         after div {
             assume z = x / y
+        }
+        after sqrt {
+            assume (x >= 0) & (y >= 0)
+            & (y * y <= x) & (x < (y + 1) * (y + 1))
+        }
+        after min {
+            if x < y {
+                assume z = x;
+            } else {
+                assume z = y;
+            }
+        }
+        after max {
+            if x > y {
+                assume z = x;
+            } else {
+                assume z = y;
+            }
         }
     }
 
