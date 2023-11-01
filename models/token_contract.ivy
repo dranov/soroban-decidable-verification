@@ -2,15 +2,13 @@
 
 include soroban
 
-instance money : integer
-
 type allowance_key = struct {
     owner : address,
     spender : address
 }
 
 type allowance_value = struct {
-    amount : money,
+    amount : integer,
     expiration_ledger : ledger
 }
 
@@ -56,25 +54,25 @@ module token_contract = {
                 if allowance.has(key) {
                     v := allowance.get(key);
                     if v.expiration_ledger < env.get_ledger_sequence() {
-                        v.amount := money.zero;
+                        v.amount := integer.zero;
                         res := v
                     } else {
                         res := v;
                     }
                 } else {
-                        v.amount := money.zero;
+                        v.amount := integer.zero;
                         v.expiration_ledger := 0;
                         res := v
                 }
             }
         }
 
-        action write_allowance(owner : address, spender : address, amount : money, expiration_ledger : ledger) = {
+        action write_allowance(owner : address, spender : address, amount : integer, expiration_ledger : ledger) = {
             local v: allowance_value {
                 v.amount := amount;
                 v.expiration_ledger := expiration_ledger;
 
-                if money.gt(amount, money.zero) & expiration_ledger < env.get_ledger_sequence() {
+                if integer.gt(amount, integer.zero) & expiration_ledger < env.get_ledger_sequence() {
                     panic();
                 }
 
@@ -84,7 +82,7 @@ module token_contract = {
                     # FIXME: model temporary storage
                     allowance.set(key, v);
 
-                    if money.gt(amount, money.zero) {
+                    if integer.gt(amount, integer.zero) {
                         # FIXME: model temporary storage
                         # bump entry TTL
                     }
@@ -92,20 +90,20 @@ module token_contract = {
             }
         }
 
-        action spend_allowance(owner : address, spender : address, amount : money) = {
+        action spend_allowance(owner : address, spender : address, amount : integer) = {
             local v: allowance_value {
                 v := read_allowance(owner, spender);
-                if money.lt(v.amount, amount) {
+                if integer.lt(v.amount, amount) {
                     panic();
                 }
-                write_allowance(owner, spender, money.sub(v.amount, amount), v.expiration_ledger);
+                write_allowance(owner, spender, integer.sub(v.amount, amount), v.expiration_ledger);
             }
         }
     }
 
     # balance.rs
     object b = {
-        instance balance : partial_map(address, money)
+        instance balance : partial_map(address, integer)
         action _save_state = {
             balance._save_state()
         }
@@ -113,32 +111,32 @@ module token_contract = {
             balance._restore_state()
         }
 
-        action read_balance(a : address) returns (res : money) = {
+        action read_balance(a : address) returns (res : integer) = {
             if balance.has(a) {
                 res := balance.get(a)
             } else {
-                res := money.zero
+                res := integer.zero
             }
         }
 
-        action write_balance(a : address, amount : money) = {
+        action write_balance(a : address, amount : integer) = {
             balance.set(a, amount)
         }
 
-        action receive_balance(a : address, amount : money) = {
-            local balance : money {
+        action receive_balance(a : address, amount : integer) = {
+            local balance : integer {
                 balance := read_balance(a);
-                write_balance(a, money.add(balance, amount))
+                write_balance(a, integer.add(balance, amount))
             }
         }
 
-        action spend_balance(a : address, amount : money) = {
-            local balance : money {
+        action spend_balance(a : address, amount : integer) = {
+            local balance : integer {
                 balance := read_balance(a);
-                if money.lt(balance, amount) {
+                if integer.lt(balance, amount) {
                     panic();
                 }
-                write_balance(a, money.sub(balance, amount))
+                write_balance(a, integer.sub(balance, amount))
             }
         }
     }
@@ -147,8 +145,8 @@ module token_contract = {
     # TODO: metadata.rs
 
     # TODO: should we define a contract module?
-    action check_nonnegative_amount(amount : money) = {
-        if money.lt(amount, money.zero) {
+    action check_nonnegative_amount(amount : integer) = {
+        if integer.lt(amount, integer.zero) {
             panic()
         }
     }
@@ -161,7 +159,7 @@ module token_contract = {
         # TODO: metadata
     }
 
-    action mint(to : address, amount : money) = {
+    action mint(to : address, amount : integer) = {
         check_nonnegative_amount(amount);
         local admin: address {
             admin := ad.read_administrator();
@@ -185,7 +183,7 @@ module token_contract = {
     #############
     # INTERFACE #
     #############
-    action allowance(owner : address, spender : address) returns (res : money) = {
+    action allowance(owner : address, spender : address) returns (res : integer) = {
         # FIXME: instance storage bump
         local allowance : allowance_value {
             allowance := al.read_allowance(owner, spender);
@@ -193,7 +191,7 @@ module token_contract = {
         }
     }
 
-    action approve(owner : address, spender : address, amount : money, expiration_ledger : ledger) = {  
+    action approve(owner : address, spender : address, amount : integer, expiration_ledger : ledger) = {  
         env.require_auth(owner, _this, _approve);
         check_nonnegative_amount(amount);
         # FIXME: instance storage bump
@@ -201,17 +199,17 @@ module token_contract = {
         # FIXME: env events
     }
 
-    action balance(id: address) returns (res: money) = {
+    action balance(id: address) returns (res: integer) = {
         # FIXME: instance storage bump
         res := b.read_balance(id)
     }
 
-    action spendable_balance(id: address) returns (res: money) = {
+    action spendable_balance(id: address) returns (res: integer) = {
         # FIXME: instance storage bump
         res := b.read_balance(id)
     }
 
-    action transfer(owner : address, to : address, amount : money) = {
+    action transfer(owner : address, to : address, amount : integer) = {
         env.require_auth(owner, _this, _transfer);
         check_nonnegative_amount(amount);
         # FIXME: instance storage bump
@@ -220,7 +218,7 @@ module token_contract = {
         # FIXME: env events
     }
 
-    action transfer_from(spender : address, owner : address, to : address, amount : money) = {
+    action transfer_from(spender : address, owner : address, to : address, amount : integer) = {
         env.require_auth(spender, _this, _transfer_from);
         check_nonnegative_amount(amount);
         # FIXME: instance storage bump
@@ -230,7 +228,7 @@ module token_contract = {
         # FIXME: env events
     }
 
-    action burn(owner : address, amount : money) = {
+    action burn(owner : address, amount : integer) = {
         env.require_auth(owner, _this, _burn);
         check_nonnegative_amount(amount);
         # FIXME: instance storage bump
@@ -238,7 +236,7 @@ module token_contract = {
         # FIXME: env events
     }
 
-    action burn_from(spender : address, owner : address, amount : money) = {
+    action burn_from(spender : address, owner : address, amount : integer) = {
         env.require_auth(spender, _this, _burn_from);
         check_nonnegative_amount(amount);
         # FIXME: instance storage bump

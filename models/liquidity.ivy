@@ -1,7 +1,5 @@
 #lang ivy1.8
 
-include soroban
-include token_contract
 include liquidity_contract
 
 instance l : liquidity_contract
@@ -9,6 +7,8 @@ instance l : liquidity_contract
 type function_identifier = {
     _initialize,
     _share_id,
+    _deposit,
+
     _mint,
     _set_admin,
     _allowance,

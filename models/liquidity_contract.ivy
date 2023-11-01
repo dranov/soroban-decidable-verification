@@ -3,11 +3,6 @@
 include soroban
 include token_contract
 
-# We want to be able to do operations treating
-# balances, shares_amount, and reserve_amount as the same type.
-alias shares_amount = money
-alias reserve_amount = money
-
 module liquidity_contract = {
     individual _this : address
     after init {
@@ -21,9 +16,9 @@ module liquidity_contract = {
     instance b : token_contract
     instance share : token_contract
 
-    instance total_shares : singleton(shares_amount)
-    instance reserve_a : singleton(reserve_amount)
-    instance reserve_b : singleton(reserve_amount)
+    instance total_shares : singleton(integer)
+    instance reserve_a : singleton(integer)
+    instance reserve_b : singleton(integer)
 
     # The actual contract is modelled such that a, b, share
     # and so on can be unitialized, but that would complicate
@@ -33,13 +28,83 @@ module liquidity_contract = {
     # contract would fail/panic.
     # This corresponds to fn initialize()
     after init {
-        total_shares.set(shares_amount.zero);
-        reserve_a.set(reserve_amount.zero);
-        reserve_b.set(reserve_amount.zero);
+        total_shares.set(integer.zero);
+        reserve_a.set(integer.zero);
+        reserve_b.set(integer.zero);
     }
 
     action share_id returns (res : address) = {
         res := share._this;
+    }
+
+    action deposit(depositor: address, desired_a: integer, min_a: integer, desired_b: integer, min_b: integer) = {
+        # `depositor` is called `to` in the contract code
+        env.require_auth(depositor, _this, _deposit);
+        local _reserve_a:integer, _reserve_b:integer,
+            _amount_a:integer, _amount_b:integer,
+            _balance_a:integer, _balance_b:integer,
+            _total_shares:integer, _new_total_shares:integer,
+            _shares_a: integer, _shares_b: integer {
+
+            _reserve_a := reserve_a.get();
+            _reserve_b := reserve_b.get();
+
+            # Calculate deposit amounts
+            (_amount_a, _amount_b) := get_deposit_amounts(desired_a, min_a, desired_b, min_b, _reserve_a, _reserve_b);
+            # FIXME: model auth for cross-contract call
+            a.transfer(depositor, _this, _amount_a);
+            b.transfer(depositor, _this, _amount_b);
+
+            # Calculate how many new pool shares to mint
+            _balance_a := get_balance_a();
+            _balance_b := get_balance_b();
+            _total_shares := total_shares.get();
+
+            _new_total_shares := integer.zero;
+            # TODO: finish this function
+
+        }
+    }
+
+
+    # Internal functions
+    action get_deposit_amounts(desired_a: integer, min_a: integer, desired_b: integer, min_b: integer, reserve_a: integer, reserve_b: integer)
+     returns (res_a: integer, res_b: integer) = {
+        if reserve_a = integer.zero & reserve_b = integer.zero {
+            res_a := desired_a;
+            res_b := desired_b;
+            # return (desired_a, desired_b)
+        } else {
+            local amount_a:integer, amount_b: integer {
+                amount_b := integer.div(integer.mul(desired_a, reserve_b), reserve_a);
+                if integer.lte(amount_b, desired_b) {
+                    if integer.lt(amount_b, min_b) {
+                        panic();
+                    }
+                    res_a := desired_a;
+                    res_b := amount_b;
+                    # return (desired_a, amount_b)
+                } else {
+                    amount_a := integer.div(integer.mul(desired_b, reserve_a), reserve_b);
+                    if integer.gt(amount_a, desired_a) | integer.lt(desired_a, min_a) {
+                        panic();
+                    }
+                    res_a := amount_a;
+                    res_b := desired_b;
+                    # return (amount_a, desired_b)
+                }
+            }
+        }
+    }
+
+    action get_balance_a returns (res: integer) = {
+        # FIXME: model auth for cross-contract call
+        res := a.balance(_this);
+    }
+
+    action get_balance_b returns (res: integer) = {
+        # FIXME: model auth for cross-contract call
+        res := b.balance(_this);
     }
 }
 

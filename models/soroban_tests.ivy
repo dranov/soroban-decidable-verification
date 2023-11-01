@@ -17,14 +17,13 @@ export _save_restore_roundtrip
 
 conjecture [succ_lt] ledger.succ(X, Y) -> X:ledger < Y
 
-instance money : integer
-conjecture [m_succ_lt] money.succ(X, Y) -> money.lt(X, Y)
+conjecture [m_succ_lt] integer.succ(X, Y) -> integer.lt(X, Y)
 conjecture [m_lteq_def]
-    forall X:money, Y:money.
-        money.lte(X, Y) <-> (money.lt(X, Y) | X = Y)
+    forall X:integer, Y:integer.
+        integer.lte(X, Y) <-> (integer.lt(X, Y) | X = Y)
 
 conjecture [m_lt_irreflexive]
-    forall X:money. ~money.lt(X, X)
+    forall X:integer. ~integer.lt(X, X)
 
-conjecture [lte_zero] money.lte(money.zero, money.zero)
-conjecture [ex_minus_one] exists X:money. money.succ(X, money.zero)
+conjecture [lte_zero] integer.lte(integer.zero, integer.zero)
+conjecture [ex_minus_one] exists X:integer. integer.succ(X, integer.zero)

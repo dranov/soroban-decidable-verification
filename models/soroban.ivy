@@ -2,6 +2,8 @@
 
 include integers
 
+instance integer : decidable_integer
+
 #########################################
 # Mappings (with transactional support) #
 #########################################
