@@ -8,7 +8,17 @@ instance l : liquidity_contract
 
 type function_identifier = {
     _initialize,
-    _share_id
+    _share_id,
+    _mint,
+    _set_admin,
+    _allowance,
+    _approve,
+    _balance,
+    _spendable_balance,
+    _transfer,
+    _transfer_from,
+    _burn,
+    _burn_from
 }
 instance env : environment(function_identifier)
 action panic = {
@@ -16,11 +26,9 @@ action panic = {
 }
 
 invariant [distinct_addresses] 
-    l._this ~= l.a.token._this
-    & l._this ~= l.b.token._this
-    & l._this ~= l.share.token._this
-    & l.a.token._this ~= l.b.token._this
-    & l.a.token._this ~= l.share.token._this
-    & l.b.token._this ~= l.share.token._this
-
-conjecture [hmm] false
+    l._this ~= l.a._this
+    & l._this ~= l.b._this
+    & l._this ~= l.share._this
+    & l.a._this ~= l.b._this
+    & l.a._this ~= l.share._this
+    & l.b._this ~= l.share._this

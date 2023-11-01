@@ -39,8 +39,8 @@ module liquidity_contract = {
     }
 
     action share_id returns (res : address) = {
-        res := share.token._this;
+        res := share._this;
     }
 }
 
-instantiate liquidity_contract
+# instantiate liquidity_contract
