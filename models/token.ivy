@@ -1,7 +1,7 @@
 #lang ivy1.8
 
 include token_contract
-instantiate token_contract
+instance t : token_contract
 
 type function_identifier = {
     _initialize,
@@ -25,55 +25,53 @@ action panic = {
 action execute_transaction = {
     env.begin_transaction();
     # Save state
-    ad._save_state();
-    al._save_state();
-    b._save_state();
+    t._save_state();
     local tx: function_identifier, _a: address, _b: address, _c: address, _m: money, _l: ledger {
         if tx = _initialize {
-            token.initialize(_a);
+            t.initialize(_a);
         } else if tx = _mint {
-            token.mint(_a, _m);
+            t.mint(_a, _m);
             assert env.tx_has_panicked -> money.lt(_m, money.zero);
         } else if tx = _set_admin {
-            token.set_admin(_a);
+            t.set_admin(_a);
         } else if tx = _allowance {
-            _m := token.allowance(_a, _b);
+            _m := t.allowance(_a, _b);
         } else if tx = _approve {
-            token.approve(_a, _b, _m, _l);
+            t.approve(_a, _b, _m, _l);
         } else if tx = _balance {
-            _m := token.balance(_a);
+            _m := t.balance(_a);
         } else if tx = _spendable_balance {
-            _m := token.spendable_balance(_a);
+            _m := t.spendable_balance(_a);
         } else if tx = _transfer {
-            token.transfer(_a, _b, _m);
+            t.transfer(_a, _b, _m);
         } else if tx = _transfer_from {
-            token.transfer_from(_a, _b, _c, _m);
+            t.transfer_from(_a, _b, _c, _m);
         } else if tx = _burn {
-            token.burn(_a, _m);
+            t.burn(_a, _m);
         } else if tx = _burn_from {
-            token.burn_from(_a, _b, _m);
+            t.burn_from(_a, _b, _m);
         }
 
 
     # Assertions about authorization
     # (1) All balance-decreasing operations require authorization
-    assert b.balance.map(O, NM) & b.balance._map(O, M)
+    assert t.b.balance.map(O, NM) & t.b.balance._map(O, M)
         & money.lt(NM, M) # O's balance has decreased
      -> (env.tx_has_panicked
-        | (exists F. env.auth_required(O, token._this, F))
-        | (exists X. (env.auth_required(X, token._this, _transfer_from) |
-            env.auth_required(X, token._this, _burn_from))));
+        | (exists F. env.auth_required(O, t._this, F))
+        | (exists X. (env.auth_required(X, t._this, _transfer_from) |
+            env.auth_required(X, t._this, _burn_from))));
 
     # (2) transfer_from and burn_from have been previously approved
     # and authorized by the owner of the balance
     assert ~env.tx_has_panicked
-        & b.balance.map(O, NM) & b.balance._map(O, M)
+        & t.b.balance.map(O, NM) & t.b.balance._map(O, M)
         & money.lt(NM, M) # O's balance has decreased
         & money.minus(M, NM, A) # A is the amount transfered
         & (tx = _transfer_from | tx = _burn_from)
-        -> ((exists X. (env.auth_required(X, token._this, _transfer_from) |
-                        env.auth_required(X, token._this, _burn_from))
-            & env.historical_auth_required(O, token._this, _approve)) # there was an approval
+        -> ((exists X. (env.auth_required(X, t._this, _transfer_from) |
+                        env.auth_required(X, t._this, _burn_from))
+            & env.historical_auth_required(O, t._this, _approve)) # there was an approval
             # FIXME: this doesn't work; we should make Ivy print post-states
             # with trace=true to make it easier to debug what's going on
             # & (forall AK:allowance_key, AV:allowance_value, NAV:allowance_value.
@@ -90,24 +88,22 @@ action execute_transaction = {
     var restore: bool;
     restore := env.end_transaction();
     if restore {
-        ad._restore_state();
-        al._restore_state();
-        b._restore_state();
-        assert b.balance.pre(X) = (old b.balance.pre(X));
-        assert b.balance.map(X, Y) = (old b.balance.map(X, Y));
+        t._restore_state();
+        assert t.b.balance.pre(X) = (old t.b.balance.pre(X));
+        assert t.b.balance.map(X, Y) = (old t.b.balance.map(X, Y));
     }
 }
 export execute_transaction
 
 invariant [all_balances_positive]
     forall A, V.
-        b.balance.pre(A) & b.balance.map(A, V) -> money.gte(V, money.zero)
+        t.b.balance.pre(A) & t.b.balance.map(A, V) -> money.gte(V, money.zero)
 
 invariant [all_allowances_positive]
     forall AK:allowance_key, AV:allowance_value.
-        al.allowance.pre(AK) & al.allowance.map(AK, AV) -> money.gte(AV.amount, money.zero)
+        t.al.allowance.pre(AK) & t.al.allowance.map(AK, AV) -> money.gte(AV.amount, money.zero)
 
 invariant [allowance_implies_authorization]
     forall AK:allowance_key, AV:allowance_value.
-        al.allowance.pre(AK) & al.allowance.map(AK, AV) & money.gt(AV.amount, money.zero)
-        -> env.historical_auth_required(AK.owner, token._this, _approve)
+        t.al.allowance.pre(AK) & t.al.allowance.map(AK, AV) & money.gt(AV.amount, money.zero)
+        -> env.historical_auth_required(AK.owner, t._this, _approve)
