@@ -147,112 +147,123 @@ module token_contract = {
     # TODO: metadata.rs
 
     # TODO: should we define a contract module?
-    object token = {
-        individual _this : address
-        after init {
-            _this := env._register_contract();
+    action check_nonnegative_amount(amount : money) = {
+        if money.lt(amount, money.zero) {
+            panic()
         }
-
-        action check_nonnegative_amount(amount : money) = {
-            if money.lt(amount, money.zero) {
-                panic()
-            }
-        }
-
-        action initialize(admin: address) = {
-            if ad.has_administrator() {
-                panic()
-            }
-            ad.write_administrator(admin)
-            # TODO: metadata
-        }
-
-        action mint(to : address, amount : money) = {
-            check_nonnegative_amount(amount);
-            local admin: address {
-                admin := ad.read_administrator();
-                env.require_auth(admin, _this, _mint);
-                # FIXME: instance storage bump
-                b.receive_balance(to, amount)
-                # FIXME: env events
-            }
-        }
-
-        action set_admin(new_admin : address) = {
-            local admin: address {
-                admin := ad.read_administrator();
-                env.require_auth(admin, _this, _set_admin);
-                # FIXME: instance storage bump
-                ad.write_administrator(new_admin)
-                # FIXME: env events
-            }
-        }
-
-        #############
-        # INTERFACE #
-        #############
-        action allowance(owner : address, spender : address) returns (res : money) = {
-            # FIXME: instance storage bump
-            local allowance : allowance_value {
-                allowance := al.read_allowance(owner, spender);
-                res := allowance.amount
-            }
-        }
-
-        action approve(owner : address, spender : address, amount : money, expiration_ledger : ledger) = {  
-            env.require_auth(owner, _this, _approve);
-            check_nonnegative_amount(amount);
-            # FIXME: instance storage bump
-            al.write_allowance(owner, spender, amount, expiration_ledger)
-            # FIXME: env events
-        }
-
-        action balance(id: address) returns (res: money) = {
-            # FIXME: instance storage bump
-            res := b.read_balance(id)
-        }
-
-        action spendable_balance(id: address) returns (res: money) = {
-            # FIXME: instance storage bump
-            res := b.read_balance(id)
-        }
-
-        action transfer(owner : address, to : address, amount : money) = {
-            env.require_auth(owner, _this, _transfer);
-            check_nonnegative_amount(amount);
-            # FIXME: instance storage bump
-            b.spend_balance(owner, amount);
-            b.receive_balance(to, amount);
-            # FIXME: env events
-        }
-
-        action transfer_from(spender : address, owner : address, to : address, amount : money) = {
-            env.require_auth(spender, _this, _transfer_from);
-            check_nonnegative_amount(amount);
-            # FIXME: instance storage bump
-            al.spend_allowance(owner, spender, amount);
-            b.spend_balance(owner, amount);
-            b.receive_balance(to, amount);
-            # FIXME: env events
-        }
-
-        action burn(owner : address, amount : money) = {
-            env.require_auth(owner, _this, _burn);
-            check_nonnegative_amount(amount);
-            # FIXME: instance storage bump
-            b.spend_balance(owner, amount);
-            # FIXME: env events
-        }
-
-        action burn_from(spender : address, owner : address, amount : money) = {
-            env.require_auth(spender, _this, _burn_from);
-            check_nonnegative_amount(amount);
-            # FIXME: instance storage bump
-            al.spend_allowance(owner, spender, amount);
-            b.spend_balance(owner, amount);
-            # FIXME: env events
-        }
-
-        # TODO: metadata: decimals, name, symbol
     }
+
+    action initialize(admin: address) = {
+        if ad.has_administrator() {
+            panic()
+        }
+        ad.write_administrator(admin)
+        # TODO: metadata
+    }
+
+    action mint(to : address, amount : money) = {
+        check_nonnegative_amount(amount);
+        local admin: address {
+            admin := ad.read_administrator();
+            env.require_auth(admin, _this, _mint);
+            # FIXME: instance storage bump
+            b.receive_balance(to, amount)
+            # FIXME: env events
+        }
+    }
+
+    action set_admin(new_admin : address) = {
+        local admin: address {
+            admin := ad.read_administrator();
+            env.require_auth(admin, _this, _set_admin);
+            # FIXME: instance storage bump
+            ad.write_administrator(new_admin)
+            # FIXME: env events
+        }
+    }
+
+    #############
+    # INTERFACE #
+    #############
+    action allowance(owner : address, spender : address) returns (res : money) = {
+        # FIXME: instance storage bump
+        local allowance : allowance_value {
+            allowance := al.read_allowance(owner, spender);
+            res := allowance.amount
+        }
+    }
+
+    action approve(owner : address, spender : address, amount : money, expiration_ledger : ledger) = {  
+        env.require_auth(owner, _this, _approve);
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        al.write_allowance(owner, spender, amount, expiration_ledger)
+        # FIXME: env events
+    }
+
+    action balance(id: address) returns (res: money) = {
+        # FIXME: instance storage bump
+        res := b.read_balance(id)
+    }
+
+    action spendable_balance(id: address) returns (res: money) = {
+        # FIXME: instance storage bump
+        res := b.read_balance(id)
+    }
+
+    action transfer(owner : address, to : address, amount : money) = {
+        env.require_auth(owner, _this, _transfer);
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        b.spend_balance(owner, amount);
+        b.receive_balance(to, amount);
+        # FIXME: env events
+    }
+
+    action transfer_from(spender : address, owner : address, to : address, amount : money) = {
+        env.require_auth(spender, _this, _transfer_from);
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        al.spend_allowance(owner, spender, amount);
+        b.spend_balance(owner, amount);
+        b.receive_balance(to, amount);
+        # FIXME: env events
+    }
+
+    action burn(owner : address, amount : money) = {
+        env.require_auth(owner, _this, _burn);
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        b.spend_balance(owner, amount);
+        # FIXME: env events
+    }
+
+    action burn_from(spender : address, owner : address, amount : money) = {
+        env.require_auth(spender, _this, _burn_from);
+        check_nonnegative_amount(amount);
+        # FIXME: instance storage bump
+        al.spend_allowance(owner, spender, amount);
+        b.spend_balance(owner, amount);
+        # FIXME: env events
+    }
+
+    # TODO: metadata: decimals, name, symbol
+
+    # Contract-generic stuff
+    individual _this : address
+    after init {
+        _this := env._register_contract();
+    }
+
+    action _save_state = {
+        ad._save_state();
+        al._save_state();
+        b._save_state();
+    }
+    action _restore_state = {
+        ad._restore_state();
+        al._restore_state();
+        b._restore_state();
+    }
+
 }
