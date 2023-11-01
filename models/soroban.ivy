@@ -3,6 +3,7 @@
 include integers
 
 instance integer : decidable_integer
+# instance integer : interpreted_integer
 
 #########################################
 # Mappings (with transactional support) #

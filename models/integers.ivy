@@ -25,7 +25,7 @@ module decidable_integer = {
 
     # FIXME: we really want to fix the definition facility for sqrt
     # y = sqrt(x) <-> y^2 <= x < (y+1)^2
-    relation isqrt(X:t, Y:t)# = 
+    # relation isqrt(X:t, Y:t)# = 
         # gt(X, zero) & gt(Y, zero)
         # & exists YY. mult(Y, Y, YY) & lte(YY, X)
         # & exists Y1, YY1. succ(Y, Y1) & mult(Y1, Y1, YY1) & lt(X, YY1)
@@ -41,6 +41,8 @@ module decidable_integer = {
     action sub(x:t,y:t) returns (z:t)
     action mul(x:t,y:t) returns (z:t)
     action div(x:t,y:t) returns (z:t)
+
+    action sqrt(x:t) returns (y:t)
 
     action min(x:t,y:t) returns (z:t)
     action max(x:t,y:t) returns (z:t)
@@ -64,12 +66,12 @@ module decidable_integer = {
         property [succ_not_opposite]
             succ(X, Y) -> ~(plus(X, Y, zero) & minus(zero, X, Y))
         # FIXME: error: Solver produced inconclusive result
-        property [isqrt_def]
-            isqrt(X, Y) <-> (
-                gte(X, zero) & gte(Y, zero)
-                & exists YY. mult(Y, Y, YY) & lte(YY, X)
-                & exists Y1, YY1. succ(Y, Y1) & mult(Y1, Y1, YY1) & lt(X, YY1)
-            )
+        # property [isqrt_def]
+        #     isqrt(X, Y) <-> (
+        #         gte(X, zero) & gte(Y, zero)
+        #         & exists YY. mult(Y, Y, YY) & lte(YY, X)
+        #         & exists Y1, YY1. succ(Y, Y1) & mult(Y1, Y1, YY1) & lt(X, YY1)
+        #     )
 
         # Properties of order
         property [transitivity] lt(T,U) & lt(U,V) -> lt(T,V)
@@ -177,6 +179,11 @@ module decidable_integer = {
         after div {
             assume divi(x, y, z);
         }
+        after sqrt {
+            assume gte(x, zero) & gte(y, zero)
+                & exists YY. mult(y, y, YY) & lte(YY, x)
+                & exists Y1, YY1. succ(y, Y1) & mult(Y1, Y1, YY1) & lt(x, YY1)
+        }
         after min {
             if lt(x, y) {
                 assume z = x;
@@ -215,9 +222,9 @@ module decidable_integer = {
         # FIXME: we cannot verify this
         # error: Solver produced inconclusive result
         # y = sqrt(x) <-> y^2 <= x < (y+1)^2
-        definition isqrt(X, Y) = 
-            (X >= 0) & (Y >= 0)
-            & (Y * Y <= X) & (X < (Y + 1) * (Y + 1))
+        # definition isqrt(X, Y) = 
+        #     (X >= 0) & (Y >= 0)
+        #     & (Y * Y <= X) & (X < (Y + 1) * (Y + 1))
         
         # Derived relations
         # FIXME: see the problem above with derived relations

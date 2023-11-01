@@ -43,8 +43,7 @@ module liquidity_contract = {
         local _reserve_a:integer, _reserve_b:integer,
             _amount_a:integer, _amount_b:integer,
             _balance_a:integer, _balance_b:integer,
-            _total_shares:integer, _new_total_shares:integer,
-            _shares_a: integer, _shares_b: integer {
+            _total_shares:integer, _new_total_shares:integer {
 
             _reserve_a := reserve_a.get();
             _reserve_b := reserve_b.get();
@@ -61,8 +60,15 @@ module liquidity_contract = {
             _total_shares := total_shares.get();
 
             _new_total_shares := integer.zero;
-            # TODO: finish this function
-
+            if integer.gt(_reserve_a, integer.zero) & integer.gt(_reserve_b, integer.zero) {
+                local  _shares_a: integer, _shares_b: integer {
+                    _shares_a := integer.div(integer.mul(_balance_a, _total_shares), _reserve_a);
+                    _shares_b := integer.div(integer.mul(_balance_b, _total_shares), _reserve_b);
+                    _new_total_shares := integer.min(_shares_a, _shares_b);
+                }
+            } else {
+                _new_total_shares := integer.sqrt(integer.mul(_balance_a, _balance_b));
+            }
         }
     }
 
