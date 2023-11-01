@@ -1,0 +1,46 @@
+#lang ivy1.8
+
+include soroban
+include token_contract
+
+# We want to be able to do operations treating
+# balances, shares_amount, and reserve_amount as the same type.
+alias shares_amount = money
+alias reserve_amount = money
+
+module liquidity_contract = {
+    individual _this : address
+    after init {
+        _this := env._register_contract();
+    }
+
+    # We convert each DataKey into a separate singleton
+    # For TokenA, TokenB, and TokenShare, we have instances
+    # rather than storing the address and having an indirection
+    instance a : token_contract
+    instance b : token_contract
+    instance share : token_contract
+
+    instance total_shares : singleton(shares_amount)
+    instance reserve_a : singleton(reserve_amount)
+    instance reserve_b : singleton(reserve_amount)
+
+    # The actual contract is modelled such that a, b, share
+    # and so on can be unitialized, but that would complicate
+    # modelling, so we assume LiquidityPool contracts are always
+    # created initialized. This shouldn't be an issue, as
+    # in the real contract, any operation on an uninitialized
+    # contract would fail/panic.
+    # This corresponds to fn initialize()
+    after init {
+        total_shares.set(shares_amount.zero);
+        reserve_a.set(reserve_amount.zero);
+        reserve_b.set(reserve_amount.zero);
+    }
+
+    action share_id returns (res : address) = {
+        res := share.token._this;
+    }
+}
+
+instantiate liquidity_contract

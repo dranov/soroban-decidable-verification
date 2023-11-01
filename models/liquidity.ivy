@@ -1,0 +1,26 @@
+#lang ivy1.8
+
+include soroban
+include token_contract
+include liquidity_contract
+
+instance l : liquidity_contract
+
+type function_identifier = {
+    _initialize,
+    _share_id
+}
+instance env : environment(function_identifier)
+action panic = {
+    call env.panic
+}
+
+invariant [distinct_addresses] 
+    l._this ~= l.a.token._this
+    & l._this ~= l.b.token._this
+    & l._this ~= l.share.token._this
+    & l.a.token._this ~= l.b.token._this
+    & l.a.token._this ~= l.share.token._this
+    & l.b.token._this ~= l.share.token._this
+
+conjecture [hmm] false
