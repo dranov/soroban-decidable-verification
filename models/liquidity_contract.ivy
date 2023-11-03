@@ -145,9 +145,44 @@ module liquidity_contract = {
                 b.transfer(_this, to, _out_b);
             }
         }
-
     }
 
+    action withdraw(to: address, share_amount: integer, min_a: integer, min_b: integer)
+      returns (out_a: integer, out_b: integer) = {
+        env.require_auth(to, _this, _withdraw);
+        local _balance_a:integer, _balance_b:integer,
+              _balance_shares:integer, _total_shares:integer {
+            # First transfer the pool shares that need to be redeemed
+            share.transfer(to, _this, share_amount);
+
+            _balance_a := get_balance_a();
+            _balance_b := get_balance_b();
+            _balance_shares := get_balance_shares();
+
+            _total_shares := total_shares.get();
+
+            # Now calculate the withdraw amounts
+            out_a := integer.div(integer.mul(_balance_a, _balance_shares), _total_shares);
+            out_b := integer.div(integer.mul(_balance_b, _balance_shares), _total_shares);
+
+            if integer.lt(out_a, min_a) | integer.lt(out_b, min_b) {
+                panic();
+            }
+
+            burn_shares(_balance_shares);
+            a.transfer(_this, to, out_a);
+            b.transfer(_this, to, out_b);
+            reserve_a.set(integer.sub(_balance_a, out_a));
+            reserve_b.set(integer.sub(_balance_b, out_b));
+
+            # (out_a, out_b)
+       }
+    }
+
+    action get_rsrvs returns (res_a: integer, res_b: integer) = {
+        res_a := reserve_a.get();
+        res_b := reserve_b.get();
+    }
 
     # Internal functions
     action get_deposit_amounts(desired_a: integer, min_a: integer, desired_b: integer, min_b: integer, reserve_a: integer, reserve_b: integer)
@@ -194,6 +229,14 @@ module liquidity_contract = {
 
     }
 
+    action burn_shares(amount: integer) = {
+        local total: integer {
+            total := total_shares.get();
+            share.burn(_this, amount);
+            total_shares.set(integer.sub(total, amount));
+        }
+    }
+
     action get_balance_a returns (res: integer) = {
         # FIXME: model auth for cross-contract call
         res := a.balance(_this);
@@ -202,6 +245,10 @@ module liquidity_contract = {
     action get_balance_b returns (res: integer) = {
         # FIXME: model auth for cross-contract call
         res := b.balance(_this);
+    }
+
+    action get_balance_shares returns (res: integer) = {
+        res := share.balance(_this);
     }
 }
 
