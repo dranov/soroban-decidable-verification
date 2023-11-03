@@ -20,6 +20,10 @@ module liquidity_contract = {
     instance reserve_a : singleton(integer)
     instance reserve_b : singleton(integer)
 
+    # constants in the contract
+    individual residue_numerator : integer # = 997
+    individual residue_denominator : integer # = 1000
+
     # The actual contract is modelled such that a, b, share
     # and so on can be unitialized, but that would complicate
     # modelling, so we assume LiquidityPool contracts are always
@@ -70,6 +74,25 @@ module liquidity_contract = {
                 _new_total_shares := integer.sqrt(integer.mul(_balance_a, _balance_b));
             }
         }
+    }
+
+    action swap(to: address, buy_a: bool, out: integer, in_max: integer) = {
+        env.require_auth(to, _this, _swap);
+        local _reserve_a:integer, _reserve_b:integer,
+            _reserve_sell:integer, _reserve_buy:integer {
+
+            _reserve_a := reserve_a.get();
+            _reserve_b := reserve_b.get();
+
+            if buy_a {
+                _reserve_sell := _reserve_b;
+                _reserve_buy := _reserve_a;
+            } else {
+                _reserve_sell := _reserve_a;
+                _reserve_buy := _reserve_b;
+            }
+        }
+
     }
 
 

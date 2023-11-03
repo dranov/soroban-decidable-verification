@@ -8,6 +8,7 @@ type function_identifier = {
     _initialize,
     _share_id,
     _deposit,
+    _swap,
 
     _mint,
     _set_admin,

@@ -15,6 +15,16 @@ action _save_restore_roundtrip = {
 }
 export _save_restore_roundtrip
 
+action _integer_next = {
+    local x:integer, y:integer {
+        x := integer.zero;
+        y := integer.next(x);
+        assert y = integer.one;
+    }
+}
+
+export _integer_next
+
 conjecture [succ_lt] ledger.succ(X, Y) -> X:ledger < Y
 
 conjecture [m_succ_lt] integer.succ(X, Y) -> integer.lt(X, Y)

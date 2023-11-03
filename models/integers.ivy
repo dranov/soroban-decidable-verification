@@ -1,8 +1,15 @@
 #lang ivy1.8
 
+# To access normal ints without the module system
+type _int
+interpret _int -> int
+
 module decidable_integer = {
     type this
     alias t = this
+
+    # For introspection in code generation
+    individual is_decidable : bool
 
     individual minus_one : t
     individual zero : t
@@ -25,7 +32,7 @@ module decidable_integer = {
 
     # FIXME: we really want to fix the definition facility for sqrt
     # y = sqrt(x) <-> y^2 <= x < (y+1)^2
-    # relation isqrt(X:t, Y:t)# = 
+    relation isqrt(X:t, Y:t)# = 
         # gt(X, zero) & gt(Y, zero)
         # & exists YY. mult(Y, Y, YY) & lte(YY, X)
         # & exists Y1, YY1. succ(Y, Y1) & mult(Y1, Y1, YY1) & lt(X, YY1)
@@ -52,6 +59,10 @@ module decidable_integer = {
     action sub_lemma(x:t,y:t)  # x - y exists
 
     object spec = {
+        # Introspection
+        property [decidable] is_decidable = true
+
+        # Constants
         property [constants_order] succ(minus_one, zero) & succ(zero, one)
         property [minus_one_zero] 
             lt(minus_one, zero) & ~exists X. lt(minus_one, X) & lt(X, zero)
@@ -65,13 +76,18 @@ module decidable_integer = {
         property [succ_def] succ(X, Y) <-> plus(X, one, Y)
         property [succ_not_opposite]
             succ(X, Y) -> ~(plus(X, Y, zero) & minus(zero, X, Y))
-        # FIXME: error: Solver produced inconclusive result
-        # property [isqrt_def]
-        #     isqrt(X, Y) <-> (
-        #         gte(X, zero) & gte(Y, zero)
-        #         & exists YY. mult(Y, Y, YY) & lte(YY, X)
-        #         & exists Y1, YY1. succ(Y, Y1) & mult(Y1, Y1, YY1) & lt(X, YY1)
-        #     )
+        property [isqrt_def_rtl]
+            (
+                gte(X, zero) & gte(Y, zero)
+                & exists YY. mult(Y, Y, YY) & lte(YY, X)
+                & exists Y1, YY1. succ(Y, Y1) & mult(Y1, Y1, YY1) & lt(X, YY1)
+            ) -> isqrt(X, Y)
+        property [isqrt_def_ltr]
+            isqrt(X, Y) -> (
+                gte(X, zero) & gte(Y, zero)
+                & (mult(Y, Y, YY) -> lte(YY, X))
+                & (succ(Y, Y1) & mult(Y1, Y1, YY1) -> lt(X, YY1)))
+
 
         # Properties of order
         property [transitivity] lt(T,U) & lt(U,V) -> lt(T,V)
@@ -210,6 +226,8 @@ module decidable_integer = {
 
     object impl = {
         interpret t -> int
+        definition is_decidable = true
+
         definition minus_one = 0 - 1
         definition zero = 0
         definition one = 1
@@ -222,9 +240,9 @@ module decidable_integer = {
         # FIXME: we cannot verify this
         # error: Solver produced inconclusive result
         # y = sqrt(x) <-> y^2 <= x < (y+1)^2
-        # definition isqrt(X, Y) = 
-        #     (X >= 0) & (Y >= 0)
-        #     & (Y * Y <= X) & (X < (Y + 1) * (Y + 1))
+        definition isqrt(X, Y) =
+            (X >= 0) & (Y >= 0)
+            & (Y * Y <= X) & (X < (Y + 1) * (Y + 1))
         
         # Derived relations
         # FIXME: see the problem above with derived relations
@@ -242,6 +260,9 @@ module interpreted_integer = {
     alias t = this
     interpret t -> int
     
+    # For introspection in code generation
+    individual is_decidable : bool
+
     individual minus_one : t
     individual zero : t
     individual one : t
@@ -271,6 +292,9 @@ module interpreted_integer = {
     action max(x:t,y:t) returns (z:t)
 
     object spec = {
+        # Introspection
+        property [decidable] is_decidable = false
+        # Constants
         property [minus_one_def] minus_one = 0 - 1
         property [zero_def] zero = 0
         property [one_def] one = 1
@@ -315,6 +339,7 @@ module interpreted_integer = {
 
     object impl = {
         interpret t -> int
+        definition is_decidable = false
         definition minus_one = 0 - 1
         definition zero = 0
         definition one = 1
