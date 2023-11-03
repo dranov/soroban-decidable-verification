@@ -27,6 +27,11 @@ module liquidity_contract = {
     # contract would fail/panic.
     # This corresponds to fn initialize()
     after init {
+        _this := env._register_contract();
+        # the share contract has just been created i.e. it has no admin
+        assume ~share.ad.has_administrator();
+        share.initialize(_this);
+
         total_shares.set(integer.zero);
         reserve_a.set(integer.zero);
         reserve_b.set(integer.zero);
@@ -75,6 +80,10 @@ module liquidity_contract = {
                 # it just has good properties.
                 _new_total_shares := integer.sqrt(integer.mul(_balance_a, _balance_b));
             }
+
+            mint_shares(depositor, integer.sub(_new_total_shares, _total_shares));
+            reserve_a.set(_balance_a);
+            reserve_b.set(_balance_a);
         }
     }
 
@@ -224,6 +233,14 @@ module liquidity_contract = {
 
     }
 
+    action mint_shares(to: address, amount: integer) = {
+        local total: integer {
+            total := total_shares.get();
+            share.mint(to, amount);
+            total_shares.set(integer.add(total, amount));
+        }
+    }
+
     action burn_shares(amount: integer) = {
         local total: integer {
             total := total_shares.get();
@@ -248,9 +265,11 @@ module liquidity_contract = {
 
     # Contract-generic stuff
     individual _this : address
-    after init {
-        _this := env._register_contract();
-    }
+    # moved into the after init above because
+    # this needs to run BEFORE everything else
+    # after init {
+    #     _this := env._register_contract();
+    # }
 
     action _save_state = {
         a._save_state();
@@ -273,12 +292,19 @@ module liquidity_contract = {
     action _execute_transaction = {
         env.begin_transaction();
         _save_state();
-        local tx: function_identifier, _a: address, _i1: integer, _i2: integer, _i3: integer, _i4: integer {
+        local tx: function_identifier, _a: address, _b: bool, _i1: integer, _i2: integer, _i3: integer, _i4: integer, _i5: integer {
             if tx = _share_id {
                 _a:= share_id();
             } else if tx = _deposit {
                 deposit(_a, _i1, _i2, _i3, _i4);
-            }
+            } 
+            # else if tx = _swap {
+            #     swap(_a, _b, _i1, _i2);
+            # } else if tx = _withdraw {
+            #     (_i4, _i5) := withdraw(_a, _i1, _i2, _i3);
+            # } else if tx = _get_rsrvs {
+            #     (_i1, _i2) := get_rsrvs();
+            # }
         }
         var restore: bool;
         restore := env.end_transaction();
@@ -295,4 +321,6 @@ module liquidity_contract = {
     invariant [numerator_denominator_relation]
         residue_numerator ~= integer.zero & residue_denominator ~= integer.zero
         & integer.lt(residue_numerator, residue_denominator)
+    invariant [admin_of_shares_contract]
+        share.ad.a.is_set & l._this = share.ad.a.v
 }

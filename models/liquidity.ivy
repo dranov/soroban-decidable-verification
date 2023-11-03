@@ -10,6 +10,7 @@ type function_identifier = {
     _deposit,
     _swap,
     _withdraw,
+    _get_rsrvs,
 
     _mint,
     _set_admin,
@@ -41,6 +42,10 @@ invariant [distinct_addresses]
     & l.a._this ~= l.share._this
     & l.b._this ~= l.share._this
 
+# invariant [reserve_a_equals_balance]
+#     (~l.a.b.balance.pre(l._this) -> l.reserve_a.v = integer.zero)
+#     & (l.a.b.balance.pre(l._this) -> l.a.b.balance.map(l._this, l.reserve_a.v))
+
 invariant [reserve_a_equals_balance]
-    (~l.a.b.balance.pre(l._this) -> l.reserve_a.v = integer.zero)
+    (l.reserve_a.v = integer.zero <-> (~l.a.b.balance.pre(l._this) | l.a.b.balance.map(l._this, integer.zero)))
     & (l.a.b.balance.pre(l._this) -> l.a.b.balance.map(l._this, l.reserve_a.v))
