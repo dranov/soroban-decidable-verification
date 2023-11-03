@@ -301,4 +301,18 @@ module token_contract = {
             _restore_state();
         }
     }
+
+    # Contract invariants (that others can rely on)
+    invariant [all_balances_positive]
+    forall A, V.
+        b.balance.pre(A) & b.balance.map(A, V) -> integer.gte(V, integer.zero)
+
+    invariant [all_allowances_positive]
+    forall AK:allowance_key, AV:allowance_value.
+        al.allowance.pre(AK) & al.allowance.map(AK, AV) -> integer.gte(AV.amount, integer.zero)
+
+    invariant [allowance_implies_authorization]
+    forall AK:allowance_key, AV:allowance_value.
+        al.allowance.pre(AK) & al.allowance.map(AK, AV) & integer.gt(AV.amount, integer.zero)
+        -> env.historical_auth_required(AK.owner, _this, _approve)
 }

@@ -286,4 +286,13 @@ module liquidity_contract = {
             _restore_state();
         }
     }
+
+    # Contract invariants (that others can rely on)
+    invariant [reserves_are_set]
+        reserve_a.is_set & reserve_b.is_set
+    invariant [total_shares_is_set]
+        total_shares.is_set
+    invariant [numerator_denominator_relation]
+        residue_numerator ~= integer.zero & residue_denominator ~= integer.zero
+        & integer.lt(residue_numerator, residue_denominator)
 }

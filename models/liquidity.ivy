@@ -40,3 +40,7 @@ invariant [distinct_addresses]
     & l.a._this ~= l.b._this
     & l.a._this ~= l.share._this
     & l.b._this ~= l.share._this
+
+invariant [reserve_a_equals_balance]
+    (~l.a.b.balance.pre(l._this) -> l.reserve_a.v = integer.zero)
+    & (l.a.b.balance.pre(l._this) -> l.a.b.balance.map(l._this, l.reserve_a.v))

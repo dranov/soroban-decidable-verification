@@ -43,7 +43,8 @@ module partial_map(dom,rng) = {
 
     specification {
         after init {
-            map(X,Y) := false
+            pre(X) := false;
+            map(X,Y) := false;
         }
 
         implement set {
