@@ -295,16 +295,19 @@ module liquidity_contract = {
         local tx: function_identifier, _a: address, _b: bool, _i1: integer, _i2: integer, _i3: integer, _i4: integer, _i5: integer {
             if tx = _share_id {
                 _a:= share_id();
-            } else if tx = _deposit {
+            }
+            else if tx = _deposit {
                 deposit(_a, _i1, _i2, _i3, _i4);
             } 
             # else if tx = _swap {
             #     swap(_a, _b, _i1, _i2);
-            # } else if tx = _withdraw {
-            #     (_i4, _i5) := withdraw(_a, _i1, _i2, _i3);
-            # } else if tx = _get_rsrvs {
-            #     (_i1, _i2) := get_rsrvs();
             # }
+            else if tx = _withdraw {
+                (_i4, _i5) := withdraw(_a, _i1, _i2, _i3);
+            }
+            else if tx = _get_rsrvs {
+                (_i1, _i2) := get_rsrvs();
+            }
         }
         var restore: bool;
         restore := env.end_transaction();
