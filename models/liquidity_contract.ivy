@@ -35,6 +35,11 @@ module liquidity_contract = {
         total_shares.set(integer.zero);
         reserve_a.set(integer.zero);
         reserve_b.set(integer.zero);
+
+        # We don't model the actual number, just their relationship.
+        assume 
+            residue_numerator ~= integer.zero & residue_denominator ~= integer.zero
+            & integer.lt(residue_numerator, residue_denominator);
     }
 
     action share_id returns (res : address) = {
@@ -71,6 +76,8 @@ module liquidity_contract = {
                     _new_total_shares := integer.min(_shares_a, _shares_b);
                 }
             } else {
+                # NOTE: it's not crucial that this is the sqrt;
+                # it just has good properties.
                 _new_total_shares := integer.sqrt(integer.mul(_balance_a, _balance_b));
             }
         }
@@ -79,7 +86,12 @@ module liquidity_contract = {
     action swap(to: address, buy_a: bool, out: integer, in_max: integer) = {
         env.require_auth(to, _this, _swap);
         local _reserve_a:integer, _reserve_b:integer,
-            _reserve_sell:integer, _reserve_buy:integer {
+            _reserve_sell:integer, _reserve_buy:integer,
+            _n:integer, _d:integer, _sell_amount:integer,
+             _balance_a:integer, _balance_b:integer,
+            _out_a:integer, _out_b:integer,
+            _new_inv_a:integer, _new_inv_b:integer,
+            _old_inv_a:integer, _old_inv_b:integer {
 
             _reserve_a := reserve_a.get();
             _reserve_b := reserve_b.get();
@@ -90,6 +102,47 @@ module liquidity_contract = {
             } else {
                 _reserve_sell := _reserve_a;
                 _reserve_buy := _reserve_b;
+            }
+
+            # First calculate how much needs to be sold to buy amount `out`
+            _n := integer.mul(integer.mul(_reserve_sell, out), residue_denominator);
+            _d := integer.mul(integer.sub(_reserve_buy, out), residue_numerator);
+            _sell_amount := integer.add(integer.div(_n, _d), integer.one);
+
+            if integer.gt(_sell_amount, in_max) {
+                panic();
+            }
+
+            if buy_a {
+                b.transfer(to, _this, _sell_amount);
+            } else {
+                a.transfer(to, _this, _sell_amount);
+            }
+
+            _balance_a := get_balance_a();
+            _balance_b := get_balance_b();
+
+            _out_a := integer.zero;
+            _out_b := integer.zero;
+            if buy_a {
+                _out_a := out;
+            } else {
+                _out_b := out;
+            }
+
+            _new_inv_a := new_invariant_factor(_balance_a, _reserve_a, _out_a);
+            _new_inv_b := new_invariant_factor(_balance_b, _reserve_b, _out_b);
+            _old_inv_a := integer.mul(residue_denominator, _reserve_a);
+            _old_inv_b := integer.mul(residue_denominator, _reserve_b);
+
+            if integer.lt(integer.mul(_new_inv_a, _new_inv_b), integer.mul(_old_inv_a, _old_inv_b)) {
+                panic();
+            }
+
+            if buy_a {
+                a.transfer(_this, to, _out_a);
+            } else {
+                b.transfer(_this, to, _out_b);
             }
         }
 
@@ -124,6 +177,21 @@ module liquidity_contract = {
                 }
             }
         }
+    }
+
+    action new_invariant_factor(balance: integer, reserve: integer, out: integer)
+     returns (res: integer) = {
+        local _delta:integer, adj_delta:integer {
+            _delta := integer.sub(integer.sub(balance, reserve) , out);
+            adj_delta := integer.zero;
+            if integer.gt(_delta, integer.zero) {
+                adj_delta := integer.mul(residue_numerator, _delta);
+            } else {
+                adj_delta := integer.mul(residue_denominator, _delta);
+            }
+            res := integer.add(integer.mul(residue_denominator, reserve), adj_delta);
+        }   
+
     }
 
     action get_balance_a returns (res: integer) = {
