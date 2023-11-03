@@ -4,11 +4,6 @@ include soroban
 include token_contract
 
 module liquidity_contract = {
-    individual _this : address
-    after init {
-        _this := env._register_contract();
-    }
-
     # We convert each DataKey into a separate singleton
     # For TokenA, TokenB, and TokenShare, we have instances
     # rather than storing the address and having an indirection
@@ -250,6 +245,45 @@ module liquidity_contract = {
     action get_balance_shares returns (res: integer) = {
         res := share.balance(_this);
     }
-}
 
-# instantiate liquidity_contract
+    # Contract-generic stuff
+    individual _this : address
+    after init {
+        _this := env._register_contract();
+    }
+
+    action _save_state = {
+        a._save_state();
+        b._save_state();
+        share._save_state();
+        total_shares._save_state();
+        reserve_a._save_state();
+        reserve_b._save_state();
+    }
+    action _restore_state = {
+        a._restore_state();
+        b._restore_state();
+        share._restore_state();
+        total_shares._restore_state();
+        reserve_a._restore_state();
+        reserve_b._restore_state();
+    }
+
+    # Transaction wrapper for this contract
+    action _execute_transaction = {
+        env.begin_transaction();
+        _save_state();
+        local tx: function_identifier, _a: address, _i1: integer, _i2: integer, _i3: integer, _i4: integer {
+            if tx = _share_id {
+                _a:= share_id();
+            } else if tx = _deposit {
+                deposit(_a, _i1, _i2, _i3, _i4);
+            }
+        }
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+}

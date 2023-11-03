@@ -264,4 +264,41 @@ module token_contract = {
         b._restore_state();
     }
 
+
+    # Transaction wrapper for this contract
+    action _execute_transaction = {
+        env.begin_transaction();
+        _save_state();
+        local tx: function_identifier, _a: address, _b: address, _c: address, _m: integer, _l: ledger {
+            if tx = _initialize {
+                initialize(_a);
+            } else if tx = _mint {
+                mint(_a, _m);
+                assert env.tx_has_panicked -> integer.lt(_m, integer.zero);
+            } else if tx = _set_admin {
+                set_admin(_a);
+            } else if tx = _allowance {
+                _m := allowance(_a, _b);
+            } else if tx = _approve {
+                approve(_a, _b, _m, _l);
+            } else if tx = _balance {
+                _m := balance(_a);
+            } else if tx = _spendable_balance {
+                _m := spendable_balance(_a);
+            } else if tx = _transfer {
+                transfer(_a, _b, _m);
+            } else if tx = _transfer_from {
+                transfer_from(_a, _b, _c, _m);
+            } else if tx = _burn {
+                burn(_a, _m);
+            } else if tx = _burn_from {
+                burn_from(_a, _b, _m);
+            }
+        }
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
 }

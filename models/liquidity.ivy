@@ -27,6 +27,12 @@ action panic = {
     call env.panic
 }
 
+export l._execute_transaction
+# ivy_check is pretty slow if all these are enabled
+# export l.a._execute_transaction
+# export l.b._execute_transaction
+# export l.share._execute_transaction
+
 invariant [distinct_addresses] 
     l._this ~= l.a._this
     & l._this ~= l.b._this
