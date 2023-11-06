@@ -303,6 +303,9 @@ module token_contract = {
     }
 
     # Contract invariants (that others can rely on)
+    invariant [contract_address]
+        env.contract_addresses(_this)
+
     invariant [all_balances_positive]
     forall A, V.
         b.balance.pre(A) & b.balance.map(A, V) -> integer.gte(V, integer.zero)

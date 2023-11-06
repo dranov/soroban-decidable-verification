@@ -30,6 +30,7 @@ module liquidity_contract = {
         _this := env._register_contract();
         # the share contract has just been created i.e. it has no admin
         assume ~share.ad.has_administrator();
+        env.provide_auth(_this, share._this, _initialize);
         share.initialize(_this);
 
         total_shares.set(integer.zero);
@@ -59,8 +60,9 @@ module liquidity_contract = {
 
             # Calculate deposit amounts
             (_amount_a, _amount_b) := get_deposit_amounts(desired_a, min_a, desired_b, min_b, _reserve_a, _reserve_b);
-            # FIXME: model auth for cross-contract call
+            env.provide_auth(_this, a._this, _transfer);
             a.transfer(depositor, _this, _amount_a);
+            env.provide_auth(_this, b._this, _transfer);
             b.transfer(depositor, _this, _amount_b);
 
             # Calculate how many new pool shares to mint
@@ -118,8 +120,10 @@ module liquidity_contract = {
             }
 
             if buy_a {
+                env.provide_auth(_this, b._this, _transfer);
                 b.transfer(to, _this, _sell_amount);
             } else {
+                env.provide_auth(_this, a._this, _transfer);
                 a.transfer(to, _this, _sell_amount);
             }
 
@@ -144,10 +148,12 @@ module liquidity_contract = {
             }
 
             if buy_a {
-                a.transfer(_this, to, _out_a);
+                transfer_a(to, _out_a);
             } else {
-                b.transfer(_this, to, _out_b);
+                transfer_b(to, _out_b);
             }
+            reserve_a.set(integer.sub(_balance_a, _out_a));
+            reserve_b.set(integer.sub(_balance_b, _out_b));
         }
     }
 
@@ -157,6 +163,7 @@ module liquidity_contract = {
         local _balance_a:integer, _balance_b:integer,
               _balance_shares:integer, _total_shares:integer {
             # First transfer the pool shares that need to be redeemed
+            env.provide_auth(_this, share._this, _transfer);
             share.transfer(to, _this, share_amount);
 
             _balance_a := get_balance_a();
@@ -174,8 +181,8 @@ module liquidity_contract = {
             }
 
             burn_shares(_balance_shares);
-            a.transfer(_this, to, out_a);
-            b.transfer(_this, to, out_b);
+            transfer_a(to, out_a);
+            transfer_b(to, out_b);
             reserve_a.set(integer.sub(_balance_a, out_a));
             reserve_b.set(integer.sub(_balance_b, out_b));
 
@@ -236,6 +243,7 @@ module liquidity_contract = {
     action mint_shares(to: address, amount: integer) = {
         local total: integer {
             total := total_shares.get();
+            env.provide_auth(_this, share._this, _mint);
             share.mint(to, amount);
             total_shares.set(integer.add(total, amount));
         }
@@ -244,22 +252,39 @@ module liquidity_contract = {
     action burn_shares(amount: integer) = {
         local total: integer {
             total := total_shares.get();
+            env.provide_auth(_this, share._this, _burn);
             share.burn(_this, amount);
             total_shares.set(integer.sub(total, amount));
         }
     }
 
+    action transfer_a(to: address, amount: integer) = {
+        env.provide_auth(_this, a._this, _transfer);
+        a.transfer(_this, to, amount);
+    }
+
+    action transfer_b(to: address, amount: integer) = {
+        env.provide_auth(_this, b._this, _transfer);
+        b.transfer(_this, to, amount);
+    }
+
+    action transfer_shares(to: address, amount: integer) = {
+        env.provide_auth(_this, share._this, _transfer);
+        share.transfer(_this, to, amount);
+    }
+
     action get_balance_a returns (res: integer) = {
-        # FIXME: model auth for cross-contract call
+        env.provide_auth(_this, a._this, _balance);
         res := a.balance(_this);
     }
 
     action get_balance_b returns (res: integer) = {
-        # FIXME: model auth for cross-contract call
+        env.provide_auth(_this, b._this, _balance);
         res := b.balance(_this);
     }
 
     action get_balance_shares returns (res: integer) = {
+        env.provide_auth(_this, share._this, _balance);
         res := share.balance(_this);
     }
 
@@ -299,9 +324,9 @@ module liquidity_contract = {
             else if tx = _deposit {
                 deposit(_a, _i1, _i2, _i3, _i4);
             } 
-            # else if tx = _swap {
-            #     swap(_a, _b, _i1, _i2);
-            # }
+            else if tx = _swap {
+                swap(_a, _b, _i1, _i2);
+            }
             else if tx = _withdraw {
                 (_i4, _i5) := withdraw(_a, _i1, _i2, _i3);
             }
@@ -317,6 +342,8 @@ module liquidity_contract = {
     }
 
     # Contract invariants (that others can rely on)
+    invariant [contract_address]
+        env.contract_addresses(_this)
     invariant [reserves_are_set]
         reserve_a.is_set & reserve_b.is_set
     invariant [total_shares_is_set]

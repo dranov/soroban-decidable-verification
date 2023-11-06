@@ -193,9 +193,12 @@ module environment(function_identifier) = {
     # A must have authorized a call to contract C.F
     # This is cleared at the beginning/end of every transaction
     relation auth_required(A: address, C: address, F: function_identifier)
+    # Contracts, before calling a contract function, must set this
+    relation auth_provided(A: address, C: address, F: function_identifier)
     # This is not cleared and is used to refer to past/historical authorizations
     relation historical_auth_required(A: address, C: address, F: function_identifier)
 
+    # FIXME: we need to make sure this runs first!
     after init {
         current_ledger := 0;
         tx_has_started := false;
@@ -215,8 +218,18 @@ module environment(function_identifier) = {
         contract_addresses(a) := true;
     }
 
+    action provide_auth(a: address, c: address, f: function_identifier) = {
+        auth_provided(a, c, f) := true;
+    }
+
     action require_auth(a: address, c: address, f: function_identifier) = {
         auth_required(a, c, f) := true;
+        # If the caller is a contract, we require an explicit
+        # provide_auth() call to authorize the transaction
+        # In Soroban proper, this is automatically added by the environment.
+        if contract_addresses(a) & ~auth_provided(a, c, f) {
+            panic();
+        }
         historical_auth_required(a, c, f) := true;
     }
 
