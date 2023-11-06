@@ -2,8 +2,6 @@
 
 include liquidity_contract
 
-instance l : liquidity_contract
-
 type function_identifier = {
     _initialize,
     _share_id,
@@ -27,6 +25,9 @@ instance env : environment(function_identifier)
 action panic = {
     call env.panic
 }
+# IMPORTANT: this must be instantiated after env, such that
+# env's initializer runs first.
+instance l : liquidity_contract
 
 export l._execute_transaction
 # ivy_check is pretty slow if all these are enabled
@@ -49,3 +50,7 @@ invariant [distinct_addresses]
 invariant [reserve_a_equals_balance]
     (l.a.b.balance.pre(l._this) & l.a.b.balance.map(l._this, l.reserve_a.v))
     | (~l.a.b.balance.pre(l._this) & l.reserve_a.v = integer.zero)
+
+invariant [reserve_b_equals_balance]
+    (l.b.b.balance.pre(l._this) & l.b.b.balance.map(l._this, l.reserve_b.v))
+    | (~l.b.b.balance.pre(l._this) & l.reserve_b.v = integer.zero)

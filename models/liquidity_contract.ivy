@@ -32,6 +32,8 @@ module liquidity_contract = {
         assume ~share.ad.has_administrator();
         env.provide_auth(_this, share._this, _initialize);
         share.initialize(_this);
+        # FIXME: this is a hack to clear auth_provided
+        env.new_transaction();
 
         total_shares.set(integer.zero);
         reserve_a.set(integer.zero);
@@ -85,7 +87,7 @@ module liquidity_contract = {
 
             mint_shares(depositor, integer.sub(_new_total_shares, _total_shares));
             reserve_a.set(_balance_a);
-            reserve_b.set(_balance_a);
+            reserve_b.set(_balance_b);
         }
     }
 
