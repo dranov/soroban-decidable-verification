@@ -292,7 +292,6 @@ module environment(function_identifier) = {
     conjecture [atomic_transactions_1] ~env.tx_has_started
     conjecture [atomic_transactions_2] ~env.tx_has_panicked
     conjecture [atomic_transactions_3] ~env.auth_required(A, C, F)
-    conjecture [atomic_transactions_4]
-        ~tx_has_started -> ~env.auth_provided(A, C, F)
+    conjecture [atomic_transactions_4] ~env.auth_provided(A, C, F)
     conjecture [ledger_nonnegative] 0 <= env.current_ledger
 }

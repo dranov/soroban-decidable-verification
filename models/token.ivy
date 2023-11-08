@@ -1,7 +1,6 @@
 #lang ivy1.8
 
 include token_contract
-instance t : token_contract
 
 type function_identifier = {
     _initialize,
@@ -20,6 +19,8 @@ instance env : environment(function_identifier)
 action panic = {
     call env.panic
 }
+# NOTE: order is important; this MUST be after env
+instance t : token_contract
 
 # Objects: ad, al, b, token
 action execute_transaction = {
@@ -93,7 +94,7 @@ action execute_transaction = {
         assert t.b.balance.map(X, Y) = (old t.b.balance.map(X, Y));
     }
 }
-export execute_transaction
+# export execute_transaction
 
 invariant [all_balances_positive]
     forall A, V.

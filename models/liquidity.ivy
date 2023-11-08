@@ -29,7 +29,7 @@ action panic = {
 # env's initializer runs first.
 instance l : liquidity_contract
 
-export l._execute_transaction
+# export l._execute_transaction
 # ivy_check is pretty slow if all these are enabled
 # export l.a._execute_transaction
 # export l.b._execute_transaction
@@ -44,13 +44,20 @@ invariant [distinct_addresses]
     & l.b._this ~= l.share._this
 
 # This is an interesting property, because it is only true if the
-# LiquidityPool contract itself cannot own pool shares. In that situation,
-# withdrawing shares reduces the reserves, but doesn't actually change
-# the balance of tokens.
+# LiquidityPool contract itself cannot own and withdraw pool shares.
+# In that situation, withdrawing shares reduces the reserves,
+# but doesn't actually change the balance of tokens.
+# NOTE: this holds if people don't randomly transfer tokens to the LP.
 invariant [reserve_a_equals_balance]
     (l.a.b.balance.pre(l._this) & l.a.b.balance.map(l._this, l.reserve_a.v))
     | (~l.a.b.balance.pre(l._this) & l.reserve_a.v = integer.zero)
 
-invariant [reserve_b_equals_balance]
-    (l.b.b.balance.pre(l._this) & l.b.b.balance.map(l._this, l.reserve_b.v))
-    | (~l.b.b.balance.pre(l._this) & l.reserve_b.v = integer.zero)
+# invariant [reserve_b_equals_balance]
+#     (l.b.b.balance.pre(l._this) & l.b.b.balance.map(l._this, l.reserve_b.v))
+#     | (~l.b.b.balance.pre(l._this) & l.reserve_b.v = integer.zero)
+
+# You can have a larger balance than the reserve, but not a smaller one.
+# (Larger because someone transfers the LP contract tokens outside of a deposit.)
+# invariant [reserve_a_lte_balance]
+#     (l.a.b.balance.pre(l._this) & l.a.b.balance.map(l._this, V) & integer.lte(l.reserve_a.v, V))
+#     | (~l.a.b.balance.pre(l._this) & l.reserve_a.v = integer.zero)

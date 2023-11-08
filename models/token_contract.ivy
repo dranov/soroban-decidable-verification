@@ -302,6 +302,168 @@ module token_contract = {
         }
     }
 
+    # FIXME: these should be auto-generated
+    action __initialize(admin: address) = {
+        env.begin_transaction();
+        _save_state();
+
+        initialize(admin);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __initialize
+
+    action __mint(to : address, amount : integer) = {
+        env.begin_transaction();
+        _save_state();
+
+        mint(to, amount);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __mint
+
+    action __set_admin(new_admin : address)  = {
+        env.begin_transaction();
+        _save_state();
+
+        set_admin(new_admin);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __set_admin
+
+    action __allowance(owner : address, spender : address)  = {
+        env.begin_transaction();
+        _save_state();
+
+        local _m: integer {
+            _m := allowance(owner, spender);
+        }
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __allowance
+
+    
+    action __approve(owner : address, spender : address, amount : integer, expiration_ledger : ledger)  = {
+        env.begin_transaction();
+        _save_state();
+
+        approve(owner, spender, amount, expiration_ledger);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __approve
+
+   action __balance(id: address)   = {
+        env.begin_transaction();
+        _save_state();
+
+        local _m: integer {
+            _m := balance(id);
+        }
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __balance
+
+    action __spendable_balance(id: address)   = {
+        env.begin_transaction();
+        _save_state();
+
+        local _m: integer {
+            _m := spendable_balance(id);
+        }
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __spendable_balance
+
+    action __transfer(owner : address, to : address, amount : integer)  = {
+        env.begin_transaction();
+        _save_state();
+
+        transfer(owner, to, amount);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __transfer
+
+    action __transfer_from(spender : address, owner : address, to : address, amount : integer)  = {
+        env.begin_transaction();
+        _save_state();
+
+        transfer_from(spender, owner, to, amount);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __transfer_from
+
+    action __burn(owner : address, amount : integer)  = {
+        env.begin_transaction();
+        _save_state();
+
+        burn(owner, amount);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __burn
+
+    action __burn_from(spender : address, owner : address, amount : integer)  = {
+        env.begin_transaction();
+        _save_state();
+
+        burn_from(spender, owner, amount);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __burn_from
+
     # Contract invariants (that others can rely on)
     invariant [contract_address]
         env.contract_addresses(_this)

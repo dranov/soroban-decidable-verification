@@ -343,6 +343,82 @@ module liquidity_contract = {
         }
     }
 
+    # FIXME: auto-generate this
+    action __share_id = {
+        env.begin_transaction();
+        _save_state();
+
+        local a:address {
+            a := share_id();
+        }
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __share_id
+
+    action __deposit(depositor: address, desired_a: integer, min_a: integer, desired_b: integer, min_b: integer) = {
+        env.begin_transaction();
+        _save_state();
+
+        deposit(depositor, desired_a, min_a, desired_b, min_b);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __deposit 
+
+    action __swap(to: address, buy_a: bool, out: integer, in_max: integer) = {
+        env.begin_transaction();
+        _save_state();
+
+        swap(to, buy_a, out, in_max);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __swap
+
+    action __withdraw(to: address, share_amount: integer, min_a: integer, min_b: integer)
+      returns (out_a: integer, out_b: integer) = {
+        env.begin_transaction();
+        _save_state();
+
+        (out_a, out_b) := withdraw(to, share_amount, min_a, min_b);
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __withdraw
+
+    action __get_rsrvs returns (res_a: integer, res_b: integer) = {
+        env.begin_transaction();
+        _save_state();
+
+        local res_a: integer, res_b: integer {
+            (res_a, res_b) := get_rsrvs();
+        }
+
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __get_rsrvs
+
     # Contract invariants (that others can rely on)
     invariant [contract_address]
         env.contract_addresses(_this)
