@@ -33,6 +33,7 @@ RUN sudo apt-get install --no-install-recommends --yes \
 
 RUN git clone https://github.com/dranov/ivy.git \
     && cd ivy \
+    && git checkout soroban-improvements \
     && git submodule update --init
 
 RUN sudo ln -s /usr/bin/python2 /usr/bin/python \
@@ -44,6 +45,14 @@ RUN sudo ln -s /usr/bin/python2 /usr/bin/python \
 RUN pip2 install pyparsing ply tarjan pydot
 RUN sudo apt-get install -y graphviz && sudo apt-get clean
 
+# Install Duo
+RUN git clone https://github.com/VeriGu/Duo.git \
+    && cd Duo \
+    && sed -i 's$#define IVY_CHECK_PATH "/home/me/anaconda3/envs/py2/bin/ivy_check"$#define IVY_CHECK_PATH "/usr/local/bin/ivy_check"$g' src-c/InvRefiner.h \
+    && cd src-c \
+    && make
+RUN sudo apt-get install -y python3-pip
+RUN pip3 install numpy scipy pandas
 
 # RUN git clone https://github.com/dranov/ivy.git \
 #     && cd ivy \
