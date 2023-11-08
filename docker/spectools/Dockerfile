@@ -33,7 +33,7 @@ RUN sudo apt-get install --no-install-recommends --yes \
 
 RUN git clone https://github.com/dranov/ivy.git \
     && cd ivy \
-    && git checkout soroban-improvements \
+    && git checkout 648e6b334ba1d2eaaf53bd62dc639d41aa794b0f \
     && git submodule update --init
 
 RUN sudo ln -s /usr/bin/python2 /usr/bin/python \
