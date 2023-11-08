@@ -431,4 +431,19 @@ module liquidity_contract = {
         & integer.lt(residue_numerator, residue_denominator)
     invariant [admin_of_shares_contract]
         share.ad.a.is_set & l._this = share.ad.a.v
+    invariant [no_allowance_on_token_share]
+        forall AK:allowance_key.
+            share.al.allowance.pre(AK) ->
+                (AK.owner ~= _this
+                | (AK.owner = _this & forall AV:allowance_value. share.al.allowance.map(AK, AV) -> AV.amount = integer.zero))
+    invariant [no_allowance_on_token_a]
+        forall AK:allowance_key.
+            a.al.allowance.pre(AK) ->
+                (AK.owner ~= _this
+                | (AK.owner = _this & forall AV:allowance_value. a.al.allowance.map(AK, AV) -> AV.amount = integer.zero))
+    invariant [no_allowance_on_token_b]
+        forall AK:allowance_key.
+            b.al.allowance.pre(AK) ->
+                (AK.owner ~= _this
+                | (AK.owner = _this & forall AV:allowance_value. b.al.allowance.map(AK, AV) -> AV.amount = integer.zero))
 }
