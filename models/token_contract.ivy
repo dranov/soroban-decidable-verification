@@ -53,7 +53,7 @@ module token_contract = {
                 key.spender := spender;
                 if allowance.has(key) {
                     v := allowance.get(key);
-                    if v.expiration_ledger < env.get_ledger_sequence() {
+                    if ledger.lt(v.expiration_ledger, env.get_ledger_sequence()) {
                         v.amount := integer.zero;
                         res := v
                     } else {
@@ -72,7 +72,7 @@ module token_contract = {
                 v.amount := amount;
                 v.expiration_ledger := expiration_ledger;
 
-                if integer.gt(amount, integer.zero) & expiration_ledger < env.get_ledger_sequence() {
+                if integer.gt(amount, integer.zero) & ledger.lt(expiration_ledger, env.get_ledger_sequence()) {
                     panic();
                 }
 

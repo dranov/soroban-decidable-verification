@@ -128,37 +128,58 @@ module unbounded_sequence = {
     type this
     alias t = this
 
+    individual zero : t
+    individual one : t
+
+    relation lt(X:t,Y:t)
+    # Derived relations
+    relation lte(X:t, Y:t)# = lt(X, Y) | X = Y
+    relation gt(X:t, Y:t)# = ~lt(X, Y) & X ~= Y  # i.e. ~lte(X, Y)
+    relation gte(X:t, Y:t)# = ~lt(X, Y)
+    relation succ(X:t, Y:t)# = lt(X, Y) & ~(exists Z:t. lt(X, Z) & lt(Z, Y))
+
     # returns the least key greater than x
     action next(x:t) returns (y:t)
 
     # returns the greatest key less than x
     action prev(x:t) returns (y:t)
 
-    relation succ(X:t,Y:t)
-
     object spec = {
-        property [transitivity] (T:t < U & U < V) -> (T < V)
-        property [antisymmetry] ~(T:t < U & U < T)
-        property [totality] T:t < U | T = U | U < T
-        property [succ_def] succ(X,Z) -> (X < Z & ~(X < Y & Y < Z))
-        property [zero_smallest] 0 <= X:t
+        property [zero_one] succ(zero, one)
+
+        property [lte_def] lte(X, Y) <-> lt(X, Y) | X = Y
+        property [gt_def] gt(X, Y) <-> ~lt(X, Y) & X ~= Y
+        property [gte_def] gte(X, Y) <-> ~lt(X, Y)
+        property [succ_def] succ(X,Z) -> (lt(X, Z) & ~(lt(X, Y) & lt(Y, Z)))
+
+        property [transitivity] (lt(T, U) & lt(U, V)) -> lt(T, V)
+        property [antisymmetry] ~(lt(T,U) & lt(U, T))
+        property [totality] lt(T, U) | T = U | lt(U, T)
+        property [zero_smallest] lte(zero, X)
 
         after next {
-            assert x < y & (x < Y -> y <= Y);
+            assert lt(x, y) & (lt(x, Y) -> lte(y, Y));
             assert succ(x,y)
         }
         before prev {
-            assert 0 < x
+            assert lt(zero, x)
         }
         after prev {
-            assert y < x & (Y < x -> Y <= y);
+            assert lt(y, x) & (lt(Y, x) -> lte(Y, y));
             assert succ(y,x)
         }
     }
 
     object impl = {
         interpret t -> nat
-        definition succ(X,Y) = (Y = X + 1)
+        definition zero = 0
+        definition one = 1
+        definition lt(X, Y) = (X < Y)
+        definition lte(X, Y) = (X <= Y)
+        definition gt(X, Y) = (X > Y)
+        definition gte(X, Y) = (X >= Y)
+        definition succ(X, Y) = (Y = X + 1)
+
         implement next {
             y := x + 1
         }
@@ -198,9 +219,11 @@ module environment(function_identifier) = {
     # This is not cleared and is used to refer to past/historical authorizations
     relation historical_auth_required(A: address, C: address, F: function_identifier)
 
-    # FIXME: we need to make sure this runs first!
+    # NOTE: we need to make sure this runs first!
+    # We do this by ensuring `instance env : environment(function_identifier)` shows
+    # up in the source before any other instance that might refer to the environment.
     after init {
-        current_ledger := 0;
+        current_ledger := ledger.zero;
         tx_has_started := false;
         tx_has_panicked := false;
         contract_addresses(A) := false;
@@ -293,5 +316,5 @@ module environment(function_identifier) = {
     conjecture [atomic_transactions_2] ~env.tx_has_panicked
     conjecture [atomic_transactions_3] ~env.auth_required(A, C, F)
     conjecture [atomic_transactions_4] ~env.auth_provided(A, C, F)
-    conjecture [ledger_nonnegative] 0 <= env.current_ledger
+    conjecture [ledger_nonnegative] ledger.lte(ledger.zero, env.current_ledger)
 }
