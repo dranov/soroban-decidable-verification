@@ -54,3 +54,5 @@ invariant [reserve_a_lte_balance]
 invariant [reserve_b_lte_balance]
     (l.b.b.balance.pre(l._this) & (forall V. l.b.b.balance.map(l._this, V) -> integer.lte(l.reserve_b.v, V)))
     | (~l.b.b.balance.pre(l._this) & l.reserve_b.v = integer.zero)
+
+attribute method = convert_to_mypyvy

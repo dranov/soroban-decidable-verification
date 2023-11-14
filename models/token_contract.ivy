@@ -61,7 +61,7 @@ module token_contract = {
                     }
                 } else {
                         v.amount := integer.zero;
-                        v.expiration_ledger := 0;
+                        v.expiration_ledger := ledger.zero;
                         res := v
                 }
             }
