@@ -1,0 +1,107 @@
+#lang ivy1.8
+
+# This is a heavily simplified version
+# of the token contract, used for testing the mypyvy translation.
+
+include soroban
+
+type function_identifier = {
+    _mint,
+    _transfer
+}
+instance env : environment(function_identifier)
+action panic = {
+    call env.panic
+}
+
+module token_contract = {
+    instance balance : partial_map(address, integer)
+
+    action read_balance(a : address) returns (res : integer) = {
+        if balance.has(a) {
+            res := balance.get(a)
+        } else {
+            res := integer.zero
+        }
+    }
+
+    action write_balance(a : address, amount : integer) = {
+        balance.set(a, amount)
+    }
+
+    action receive_balance(a : address, amount : integer) = {
+        local balance : integer {
+            balance := read_balance(a);
+            write_balance(a, integer.add(balance, amount))
+        }
+    }
+
+    action spend_balance(a : address, amount : integer) = {
+        local balance : integer {
+            balance := read_balance(a);
+            if integer.lt(balance, amount) {
+                panic();
+            }
+            write_balance(a, integer.sub(balance, amount))
+        }
+    }
+
+    action check_nonnegative_amount(amount : integer) = {
+        if integer.lt(amount, integer.zero) {
+            panic()
+        }
+    }
+
+    action mint(to : address, amount : integer) = {
+        check_nonnegative_amount(amount);
+        receive_balance(to, amount)
+    }
+
+    action transfer(owner : address, to : address, amount : integer) = {
+        env.require_auth(owner, _this, _transfer);
+        check_nonnegative_amount(amount);
+        spend_balance(owner, amount);
+        receive_balance(to, amount);
+    }
+
+    # Contract-generic stuff
+    individual _this : address
+    after init {
+        _this := env._register_contract();
+    }
+    
+    action _save_state = {
+        balance._save_state()
+    }
+    action _restore_state = {
+        balance._restore_state()
+    }
+
+    action __mint(to : address, amount : integer) = {
+        env.begin_transaction();
+        _save_state();
+        mint(to, amount);
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __mint
+
+
+    action __transfer(owner : address, to : address, amount : integer) = {
+        env.begin_transaction();
+        _save_state();
+        transfer(owner, to, amount);
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            _restore_state();
+        }
+    }
+    export __transfer
+}
+instance t : token_contract
+
+attribute method = convert_to_mypyvy
