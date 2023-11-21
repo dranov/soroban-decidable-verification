@@ -207,6 +207,7 @@ module environment(function_identifier) = {
     # Keeps track of the context of a transaction
     individual tx_has_started: bool
     individual tx_has_panicked: bool
+    individual tx_identifier: function_identifier
 
     # Authentication
     relation contract_addresses(A: address)
@@ -268,13 +269,15 @@ module environment(function_identifier) = {
         auth_provided(A,C,F) := false;
     }
     
-    action begin_transaction = {
+    action begin_transaction(tx: function_identifier) = {
         require ~tx_has_started;
+        tx_identifier := tx;
         tx_has_started := true;
     }
 
     # Transaction executor must restore initial state if transaction panics
     action end_transaction returns (restore_state:bool) = {
+        call end_transaction_hook;
         # require tx_has_started;
         restore_state := false;
         if tx_has_panicked {

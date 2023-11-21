@@ -2,6 +2,25 @@
 
 include token_contract
 
+individual auth_assertion_failed : bool
+
+after init {
+    auth_assertion_failed := false
+}
+
+action end_transaction_hook = {
+    if ~(forall O, M, NM, A. ~env.tx_has_panicked
+        & t.b.balance.map(O, NM) & t.b.balance._map(O, M)
+        & integer.lt(NM, M) # O's balance has decreased
+        & integer.minus(M, NM, A) # A is the amount transfered
+        & (env.tx_identifier = _transfer_from | env.tx_identifier = _burn_from)
+        -> ((exists X. (env.auth_required(X, t._this, _transfer_from) |
+                        env.auth_required(X, t._this, _burn_from))
+            & env.historical_auth_required(O, t._this, _approve)))) {
+                auth_assertion_failed := true;
+    }
+}
+
 type function_identifier = {
     _initialize,
     _mint,
@@ -24,10 +43,10 @@ instance t : token_contract
 
 # Objects: ad, al, b, token
 action execute_transaction = {
-    env.begin_transaction();
-    # Save state
-    t._save_state();
     local tx: function_identifier, _a: address, _b: address, _c: address, _m: integer, _l: ledger {
+        env.begin_transaction(tx);
+        t._save_state();
+
         if tx = _initialize {
             t.initialize(_a);
         } else if tx = _mint {
@@ -65,6 +84,8 @@ action execute_transaction = {
 
     # (2) transfer_from and burn_from have been previously approved
     # and authorized by the owner of the balance
+    # TODO: turn this check into a state variable and state an
+    # invariant that the state representing the assertion never becomes false
     assert ~env.tx_has_panicked
         & t.b.balance.map(O, NM) & t.b.balance._map(O, M)
         & integer.lt(NM, M) # O's balance has decreased
@@ -96,15 +117,6 @@ action execute_transaction = {
 }
 # export execute_transaction
 
-invariant [all_balances_positive]
-    forall A, V.
-        t.b.balance.pre(A) & t.b.balance.map(A, V) -> integer.gte(V, integer.zero)
+invariant [auth_assertion] ~auth_assertion_failed
 
-invariant [all_allowances_positive]
-    forall AK:allowance_key, AV:allowance_value.
-        t.al.allowance.pre(AK) & t.al.allowance.map(AK, AV) -> integer.gte(AV.amount, integer.zero)
-
-invariant [allowance_implies_authorization]
-    forall AK:allowance_key, AV:allowance_value.
-        t.al.allowance.pre(AK) & t.al.allowance.map(AK, AV) & integer.gt(AV.amount, integer.zero)
-        -> env.historical_auth_required(AK.owner, t._this, _approve)
+attribute method = convert_to_mypyvy

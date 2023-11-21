@@ -267,9 +267,10 @@ module token_contract = {
 
     # Transaction wrapper for this contract
     action _execute_transaction = {
-        env.begin_transaction();
-        _save_state();
         local tx: function_identifier, _a: address, _b: address, _c: address, _m: integer, _l: ledger {
+            env.begin_transaction(tx);
+            _save_state();
+
             if tx = _initialize {
                 initialize(_a);
             } else if tx = _mint {
@@ -304,7 +305,7 @@ module token_contract = {
 
     # FIXME: these should be auto-generated
     action __initialize(admin: address) = {
-        env.begin_transaction();
+        env.begin_transaction(_initialize);
         _save_state();
 
         initialize(admin);
@@ -318,7 +319,7 @@ module token_contract = {
     export __initialize
 
     action __mint(to : address, amount : integer) = {
-        env.begin_transaction();
+        env.begin_transaction(_mint);
         _save_state();
 
         mint(to, amount);
@@ -332,7 +333,7 @@ module token_contract = {
     export __mint
 
     action __set_admin(new_admin : address)  = {
-        env.begin_transaction();
+        env.begin_transaction(_set_admin);
         _save_state();
 
         set_admin(new_admin);
@@ -346,7 +347,7 @@ module token_contract = {
     export __set_admin
 
     action __allowance(owner : address, spender : address)  = {
-        env.begin_transaction();
+        env.begin_transaction(_allowance);
         _save_state();
 
         local _m: integer {
@@ -363,7 +364,7 @@ module token_contract = {
 
     
     action __approve(owner : address, spender : address, amount : integer, expiration_ledger : ledger)  = {
-        env.begin_transaction();
+        env.begin_transaction(_approve);
         _save_state();
 
         approve(owner, spender, amount, expiration_ledger);
@@ -377,7 +378,7 @@ module token_contract = {
     export __approve
 
    action __balance(id: address)   = {
-        env.begin_transaction();
+        env.begin_transaction(_balance);
         _save_state();
 
         local _m: integer {
@@ -393,7 +394,7 @@ module token_contract = {
     export __balance
 
     action __spendable_balance(id: address)   = {
-        env.begin_transaction();
+        env.begin_transaction(_spendable_balance);
         _save_state();
 
         local _m: integer {
@@ -409,7 +410,7 @@ module token_contract = {
     export __spendable_balance
 
     action __transfer(owner : address, to : address, amount : integer)  = {
-        env.begin_transaction();
+        env.begin_transaction(_transfer);
         _save_state();
 
         transfer(owner, to, amount);
@@ -423,7 +424,7 @@ module token_contract = {
     export __transfer
 
     action __transfer_from(spender : address, owner : address, to : address, amount : integer)  = {
-        env.begin_transaction();
+        env.begin_transaction(_transfer_from);
         _save_state();
 
         transfer_from(spender, owner, to, amount);
@@ -437,7 +438,7 @@ module token_contract = {
     export __transfer_from
 
     action __burn(owner : address, amount : integer)  = {
-        env.begin_transaction();
+        env.begin_transaction(_burn);
         _save_state();
 
         burn(owner, amount);
@@ -451,7 +452,7 @@ module token_contract = {
     export __burn
 
     action __burn_from(spender : address, owner : address, amount : integer)  = {
-        env.begin_transaction();
+        env.begin_transaction(_burn_from);
         _save_state();
 
         burn_from(spender, owner, amount);
