@@ -9,6 +9,13 @@ type function_identifier = {
     _mint,
     _transfer
 }
+
+individual assertion_failed : bool
+
+after init {
+    assertion_failed := false;
+}
+
 instance env : environment(function_identifier)
 action panic = {
     call env.panic
@@ -78,7 +85,7 @@ module token_contract = {
     }
 
     action __mint(to : address, amount : integer) = {
-        env.begin_transaction();
+        env.begin_transaction(_mint);
         _save_state();
         mint(to, amount);
         var restore: bool;
@@ -91,7 +98,7 @@ module token_contract = {
 
 
     action __transfer(owner : address, to : address, amount : integer) = {
-        env.begin_transaction();
+        env.begin_transaction(_transfer);
         _save_state();
         transfer(owner, to, amount);
         var restore: bool;
@@ -101,7 +108,25 @@ module token_contract = {
         }
     }
     export __transfer
+
+    # Contract invariants
+    # invariant [all_balances_positive]
+    # forall A, V.
+        # balance.pre(A) & balance.map(A, V) -> integer.gte(V, integer.zero)
+
 }
 instance t : token_contract
+
+action end_transaction_hook = {
+    # "Hide" invariants behind assertion_failed, so they
+    # need to be discovered by the solver.
+    if ~(env.tx_has_panicked) {
+        if ~(forall A, V. t.balance.pre(A) & t.balance.map(A, V) -> integer.gte(V, integer.zero)) {
+            assertion_failed := true;
+        }
+    }
+}
+
+invariant [no_assertion_failures] ~assertion_failed
 
 attribute method = convert_to_mypyvy
