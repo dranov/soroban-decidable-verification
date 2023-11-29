@@ -2,6 +2,9 @@
 
 include liquidity_contract
 
+action end_transaction_hook = {
+}
+
 type function_identifier = {
     _initialize,
     _share_id,

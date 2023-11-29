@@ -317,9 +317,10 @@ module liquidity_contract = {
 
     # Transaction wrapper for this contract
     action _execute_transaction = {
-        env.begin_transaction();
-        _save_state();
         local tx: function_identifier, _a: address, _b: bool, _i1: integer, _i2: integer, _i3: integer, _i4: integer, _i5: integer {
+            env.begin_transaction(tx);
+            _save_state();
+
             if tx = _share_id {
                 _a:= share_id();
             }
@@ -345,7 +346,7 @@ module liquidity_contract = {
 
     # FIXME: auto-generate this
     action __share_id = {
-        env.begin_transaction();
+        env.begin_transaction(_share_id);
         _save_state();
 
         local a:address {
@@ -361,7 +362,7 @@ module liquidity_contract = {
     export __share_id
 
     action __deposit(depositor: address, desired_a: integer, min_a: integer, desired_b: integer, min_b: integer) = {
-        env.begin_transaction();
+        env.begin_transaction(_deposit);
         _save_state();
 
         deposit(depositor, desired_a, min_a, desired_b, min_b);
@@ -375,7 +376,7 @@ module liquidity_contract = {
     export __deposit 
 
     action __swap(to: address, buy_a: bool, out: integer, in_max: integer) = {
-        env.begin_transaction();
+        env.begin_transaction(_swap);
         _save_state();
 
         swap(to, buy_a, out, in_max);
@@ -390,7 +391,7 @@ module liquidity_contract = {
 
     action __withdraw(to: address, share_amount: integer, min_a: integer, min_b: integer)
       returns (out_a: integer, out_b: integer) = {
-        env.begin_transaction();
+        env.begin_transaction(_withdraw);
         _save_state();
 
         (out_a, out_b) := withdraw(to, share_amount, min_a, min_b);
@@ -404,7 +405,7 @@ module liquidity_contract = {
     export __withdraw
 
     action __get_rsrvs returns (res_a: integer, res_b: integer) = {
-        env.begin_transaction();
+        env.begin_transaction(_get_rsrvs);
         _save_state();
 
         local res_a: integer, res_b: integer {
