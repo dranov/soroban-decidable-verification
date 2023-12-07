@@ -99,6 +99,10 @@ module singleton(rng) = {
         _is_set := is_set;
         _v := v
     }
+
+    action prestate_get returns (y:rng)
+    action prestate_has returns (r:bool)
+
     action _restore_state = {
         is_set := _is_set;
         v := _v
@@ -106,7 +110,8 @@ module singleton(rng) = {
 
     specification {
         after init {
-            is_set := false
+            is_set := false;
+            _is_set := false;
         }
 
         implement set {
@@ -120,6 +125,14 @@ module singleton(rng) = {
 
         after has {
             assume r = is_set
+        }
+
+        after prestate_get {
+            assume _is_set -> _v = y
+        }
+
+        after prestate_has {
+            assume r = _is_set
         }
     }
 }

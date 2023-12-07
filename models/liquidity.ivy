@@ -2,9 +2,6 @@
 
 include liquidity_contract
 
-action end_transaction_hook = {
-}
-
 type function_identifier = {
     _initialize,
     _share_id,
@@ -32,6 +29,67 @@ action panic = {
 # env's initializer runs first.
 instance l : liquidity_contract
 
+## Ghost state for modelling [NoEasyWins]
+individual attacker_addr: address
+individual attacker_has_started: bool
+individual attacker_interrupted: bool
+
+instance _reserve_a: singleton(integer)
+instance _reserve_b: singleton(integer)
+
+after init {
+    # attacker_addr left unspecified
+    attacker_has_started := false;
+    attacker_interrupted := false;
+}
+
+# We keep a snapshot of _historical_auth_required taken at the point
+# of the first attacker interaction with the LP contract. This is so
+# we can later state that "only the attacker interacts with the contract
+# after a certain point in time".
+relation _historical_auth_required(A: address, C: address, F: function_identifier)
+
+action has_interacted_with_lp(addr: address) returns (b: bool) = {
+    b := env.historical_auth_required(addr, l._this, _deposit)
+        | env.historical_auth_required(addr, l._this, _withdraw)
+        | env.historical_auth_required(addr, l._this, _swap);
+}
+
+action end_transaction_hook = {
+    # Can the attacker period start now?
+    if ~env.tx_has_panicked & ~attacker_has_started & has_interacted_with_lp(attacker_addr)
+    & (exists F. env.auth_required(attacker_addr, l._this, F))
+    {
+        # Non-deterministically choose whether this is "the" attacker period
+        local start_attacker_period: bool {
+        if start_attacker_period {
+            attacker_has_started := true;
+
+            # Capture state at the point the attacker starts.
+
+            # We don't capture the current transaction's authorization. We want
+            # the historical authorization state at the START of this transaction,
+            # rather than at the end.
+            _historical_auth_required(A, C, F) :=
+                env.historical_auth_required(A, C, F) & ~env.auth_required(A, C, F);
+
+            _reserve_a.set(l.reserve_a.prestate_get());
+            _reserve_b.set(l.reserve_b.prestate_get());
+        }
+        }
+    }
+
+    # Track when someone else interacts with the LP contract after the
+    # first initial attacker interaction.
+    # "Attacker plays alone" = has_interacted & no_one_else_interacted
+    if ~env.tx_has_panicked & attacker_has_started &
+        (exists A:address, F:function_identifier.
+            A ~= attacker_addr & env.auth_required(A, l._this, F)) {
+        attacker_interrupted := true;
+    }
+
+}
+
 invariant [distinct_addresses] 
     l._this ~= l.a._this
     & l._this ~= l.b._this
@@ -57,5 +115,16 @@ invariant [reserve_a_lte_balance]
 invariant [reserve_b_lte_balance]
     (l.b.b.balance.pre(l._this) & (forall V. l.b.b.balance.map(l._this, V) -> integer.lte(l.reserve_b.v, V)))
     | (~l.b.b.balance.pre(l._this) & l.reserve_b.v = integer.zero)
+
+# Property [NoEasyWins]
+# You cannot make money if only you interact with the contract.
+invariant [no_easy_wins]
+    # During the attack period
+    attacker_has_started & ~attacker_interrupted
+    ->
+    # If the attacker has zero shares, the LP's reserves are unchanged. 
+    (forall V.
+        (l.share.b.balance.pre(attacker_addr) & l.share.b.balance.map(attacker_addr, V) & V = integer.zero)
+        -> ((l.reserve_a.v = _reserve_a.v) & (l.reserve_b.v = _reserve_b.v)))
 
 # attribute method = convert_to_mypyvy
