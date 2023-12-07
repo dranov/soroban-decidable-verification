@@ -216,6 +216,9 @@ module liquidity_contract = {
                     # return (desired_a, amount_b)
                 } else {
                     amount_a := integer.div(integer.mul(desired_b, reserve_a), reserve_b);
+                    # FIXME: Giuliano noticed that there is a bug here (in the actual example contract;
+                    # we faithfully model it). It should check amount_a < min_a (symmetric to L211 above)
+                    # rather than desired_a < min_a.
                     if integer.gt(amount_a, desired_a) | integer.lt(desired_a, min_a) {
                         panic();
                     }
