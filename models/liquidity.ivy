@@ -37,17 +37,26 @@ individual attacker_interrupted: bool
 instance _reserve_a: singleton(integer)
 instance _reserve_b: singleton(integer)
 
-after init {
-    # attacker_addr left unspecified
-    attacker_has_started := false;
-    attacker_interrupted := false;
-}
-
 # We keep a snapshot of _historical_auth_required taken at the point
 # of the first attacker interaction with the LP contract. This is so
 # we can later state that "only the attacker interacts with the contract
 # after a certain point in time".
 relation _historical_auth_required(A: address, C: address, F: function_identifier)
+
+after init {
+    # attacker_addr left unspecified
+    attacker_has_started := false;
+    attacker_interrupted := false;
+    _historical_auth_required(A, C, F) := false;
+}
+
+# Invariants for the ghost
+invariant [interrupted_imp_started]
+    attacker_interrupted -> attacker_has_started
+invariant [_reserve_a_set_once_attack_starts]
+    attacker_has_started -> _reserve_a.is_set
+invariant [_reserve_b_set_once_attack_starts]
+    attacker_has_started -> _reserve_b.is_set
 
 action has_interacted_with_lp(addr: address) returns (b: bool) = {
     b := env.historical_auth_required(addr, l._this, _deposit)
