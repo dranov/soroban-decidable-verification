@@ -2,8 +2,8 @@
 
 include integers
 
-instance integer : simplified_integer
-# instance integer : decidable_integer
+# instance integer : simplified_integer
+instance integer : decidable_integer
 # instance integer : interpreted_integer
 
 #########################################

@@ -43,4 +43,4 @@ instance t : token_contract
 
 invariant [auth_assertion] ~auth_assertion_failed
 
-attribute method = convert_to_mypyvy
+# attribute method = convert_to_mypyvy

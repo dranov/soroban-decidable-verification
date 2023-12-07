@@ -129,4 +129,4 @@ action end_transaction_hook = {
 
 invariant [no_assertion_failures] ~assertion_failed
 
-attribute method = convert_to_mypyvy
+# attribute method = convert_to_mypyvy
