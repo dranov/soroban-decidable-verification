@@ -57,6 +57,9 @@ invariant [_reserve_a_set_once_attack_starts]
     attacker_has_started -> _reserve_a.is_set
 invariant [_reserve_b_set_once_attack_starts]
     attacker_has_started -> _reserve_b.is_set
+invariant [_reserve_gte_zero]
+    (_reserve_a.is_set -> integer.gte(_reserve_a.v, integer.zero))
+    & (_reserve_b.is_set -> integer.gte(_reserve_b.v, integer.zero))
 
 action has_interacted_with_lp(addr: address) returns (b: bool) = {
     b := env.historical_auth_required(addr, l._this, _deposit)

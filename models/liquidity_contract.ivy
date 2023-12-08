@@ -428,6 +428,8 @@ module liquidity_contract = {
         env.contract_addresses(_this)
     invariant [reserves_are_set]
         reserve_a.is_set & reserve_b.is_set
+    invariant [reserve_gte_zero]
+        integer.gte(reserve_a.v, integer.zero) & integer.gte(reserve_b.v, integer.zero)
     invariant [total_shares_is_set]
         total_shares.is_set
     invariant [numerator_denominator_relation]
