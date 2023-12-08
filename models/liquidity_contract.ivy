@@ -55,7 +55,8 @@ module liquidity_contract = {
         local _reserve_a:integer, _reserve_b:integer,
             _amount_a:integer, _amount_b:integer,
             _balance_a:integer, _balance_b:integer,
-            _total_shares:integer, _new_total_shares:integer {
+            _total_shares:integer, _new_total_shares:integer,
+            _shares_created:integer {
 
             _reserve_a := reserve_a.get();
             _reserve_b := reserve_b.get();
@@ -85,7 +86,13 @@ module liquidity_contract = {
                 _new_total_shares := integer.sqrt(integer.mul(_balance_a, _balance_b));
             }
 
-            mint_shares(depositor, integer.sub(_new_total_shares, _total_shares));
+            _shares_created := integer.sub(_new_total_shares, _total_shares);
+            # BEGIN GHOST
+            _ghost_minted_shares := _shares_created;
+            _ghost_amount_a := _amount_a;
+            _ghost_amount_b := _amount_b;
+            # END GHOST
+            mint_shares(depositor, _shares_created);
             reserve_a.set(_balance_a);
             reserve_b.set(_balance_b);
         }
@@ -175,8 +182,20 @@ module liquidity_contract = {
             _total_shares := total_shares.get();
 
             # Now calculate the withdraw amounts
+
+            # NOTE: notice that out_a and out_b get computed in terms of the
+            # _balance_shares rather than share_amount. If, for instance, someone
+            # transfered shares to the LP contract externally (not part and of a
+            # withdrawal), then whoever withdraws first will get token A token B
+            # corresponding to that amount of shares on top of share_amount.
             out_a := integer.div(integer.mul(_balance_a, _balance_shares), _total_shares);
             out_b := integer.div(integer.mul(_balance_b, _balance_shares), _total_shares);
+
+            # BEGIN GHOST
+            _ghost_burned_shares := share_amount;
+            _ghost_amount_a := out_a;
+            _ghost_amount_b := out_b;
+            # END GHOST
 
             if integer.lt(out_a, min_a) | integer.lt(out_b, min_b) {
                 panic();

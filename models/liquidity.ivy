@@ -29,41 +29,49 @@ action panic = {
 # env's initializer runs first.
 instance l : liquidity_contract
 
-## Ghost state for modelling [NoEasyWins]
-individual attacker_addr: address
-individual attacker_has_started: bool
-individual attacker_interrupted: bool
+## Ghost state for modelling [NoDepositorLoss]
+individual depositor_addr: address
+individual depositor_deposited: bool
+individual depositor_withdrew: bool
 
-instance _reserve_a: singleton(integer)
-instance _reserve_b: singleton(integer)
+# Ghost state set in l.deposit(), used to snapshot the deposit amount
+individual _ghost_minted_shares: integer
+# Ghost state set in l.withdraw(), used to snapshot the withdraw amount
+individual _ghost_burned_shares: integer
+individual _ghost_amount_a: integer
+individual _ghost_amount_b: integer
 
-# We keep a snapshot of _historical_auth_required taken at the point
-# of the first attacker interaction with the LP contract. This is so
-# we can later state that "only the attacker interacts with the contract
-# after a certain point in time".
-relation _historical_auth_required(A: address, C: address, F: function_identifier)
+# Snapshot when "the" deposit happens
+instance _depositor_shares: singleton(integer)
+instance _a0: singleton(integer)
+instance _b0: singleton(integer)
+# and when the withdrawal happens
+instance _a1: singleton(integer)
+instance _b1: singleton(integer)
 
 after init {
-    # attacker_addr left unspecified
-    attacker_has_started := false;
-    attacker_interrupted := false;
-    _historical_auth_required(A, C, F) := false;
+    # depositor_addr left unspecified
+    depositor_deposited := false;
+    depositor_withdrew := false;
+
+    # Ghost state recorded in the contract code
+    _ghost_minted_shares := integer.zero;
+    _ghost_burned_shares := integer.zero;
+    _ghost_amount_a := integer.zero;
+    _ghost_amount_b := integer.zero;
 }
 
-# Invariants for the ghost
-invariant [interrupted_imp_started]
-    attacker_interrupted -> attacker_has_started
-invariant [_reserve_a_set_once_attack_starts]
-    attacker_has_started -> _reserve_a.is_set
-invariant [_reserve_b_set_once_attack_starts]
-    attacker_has_started -> _reserve_b.is_set
-invariant [_reserve_gte_zero]
-    (_reserve_a.is_set -> integer.gte(_reserve_a.v, integer.zero))
-    & (_reserve_b.is_set -> integer.gte(_reserve_b.v, integer.zero))
-invariant [reserve_change_imp_attacker_has_shares]
-    (attacker_has_started & ~attacker_interrupted) ->
-    ((_reserve_a.v ~= l.reserve_a.v | _reserve_b.v ~= l.reserve_b.v) ->
-        (l.share.b.balance.pre(attacker_addr)))
+# Invariants for the ghost state
+invariant [deposited_imp_captured]
+    depositor_deposited ->
+        _depositor_shares.is_set & _a0.is_set & _b0.is_set
+        &  env.historical_auth_required(depositor_addr, l._this, _deposit)
+invariant [withdrew_imp_captured]
+    depositor_withdrew ->
+        _a1.is_set & _b1.is_set
+        &  env.historical_auth_required(depositor_addr, l._this, _withdraw)
+invariant [withdrew_imp_deposited]
+    depositor_withdrew -> depositor_deposited
 
 action has_interacted_with_lp(addr: address) returns (b: bool) = {
     b := env.historical_auth_required(addr, l._this, _deposit)
@@ -72,40 +80,46 @@ action has_interacted_with_lp(addr: address) returns (b: bool) = {
 }
 
 action end_transaction_hook = {
-    # Can the attacker period start now?
-    if ~env.tx_has_panicked & ~attacker_has_started & has_interacted_with_lp(attacker_addr)
-    & (exists F. env.auth_required(attacker_addr, l._this, F))
-    # For simplicity: attacker starts with zero shares
-    & (l.share.b.balance.pre(attacker_addr) -> l.share.b.balance.map(attacker_addr, integer.zero))
-    {
-        # Non-deterministically choose whether this is "the" attacker period
-        local start_attacker_period: bool {
-        if start_attacker_period {
-            attacker_has_started := true;
-
-            # Capture state at the point the attacker starts.
-
-            # We don't capture the current transaction's authorization. We want
-            # the historical authorization state at the START of this transaction,
-            # rather than at the end.
-            _historical_auth_required(A, C, F) :=
-                env.historical_auth_required(A, C, F) & ~env.auth_required(A, C, F);
-
-            _reserve_a.set(l.reserve_a.prestate_get());
-            _reserve_b.set(l.reserve_b.prestate_get());
+    # Is the depositor depositing?
+    if ~env.tx_has_panicked
+    & env.auth_required(depositor_addr, l._this, _deposit) {
+        # Depositor cannot deposit twice
+        if depositor_deposited {
+            panic()
         }
+
+        # Non-deterministically choose whether this is "the" deposit
+        local deposit_now: bool {
+            if deposit_now {
+                depositor_deposited := true;
+                # Snapshot what gets deposited
+                _depositor_shares.set(_ghost_minted_shares);
+                _a0.set(_ghost_amount_a);
+                _b0.set(_ghost_amount_b);
+            }
         }
     }
 
-    # Track when someone else interacts with the LP contract after the
-    # first initial attacker interaction.
-    # "Attacker plays alone" = has_interacted & no_one_else_interacted
-    if ~env.tx_has_panicked & attacker_has_started &
-        (exists A:address, F:function_identifier.
-            A ~= attacker_addr & env.auth_required(A, l._this, F)) {
-        attacker_interrupted := true;
+    # Has the depositor withdrawn?
+    if ~env.tx_has_panicked & depositor_deposited & ~depositor_withdrew
+    & env.auth_required(depositor_addr, l._this, _withdraw) {
+        # amount withdrawn should be equal to amount deposited
+        if ~(_ghost_burned_shares = _depositor_shares.v) {
+            panic();
+        }
+
+        depositor_withdrew := true;
+        # Snapshot what gets withdrawn
+        _a1.set(_ghost_amount_a);
+        _b1.set(_ghost_amount_b);
     }
 
+    # Once deposited and withdrew, stop all activity from depositor
+    # (to make stating properties easier)
+    if depositor_deposited & depositor_withdrew
+    & (exists C, F. env.auth_required(depositor_addr, C, F)) {
+        panic();
+    }
 }
 
 invariant [distinct_addresses] 
@@ -134,17 +148,24 @@ invariant [reserve_b_lte_balance]
     (l.b.b.balance.pre(l._this) & (forall V. l.b.b.balance.map(l._this, V) -> integer.lte(l.reserve_b.v, V)))
     | (~l.b.b.balance.pre(l._this) & l.reserve_b.v = integer.zero)
 
-# Property [NoEasyWins]
-# You cannot make money if only you interact with the contract.
-invariant [no_easy_wins]
-    # During the attack period
-    attacker_has_started & ~attacker_interrupted
+# Property [NoDepositorLoss], i.e. one of the following is true:
+# if A1 <= A0: A0 - A1 <= (B1 - B0) * (A1 / B1), or
+# if B1 <= B0: B0 - B1 <= (A1 - A0) * (B1 / A1), or
+# A0 <= A1 & B0 <= B1
+invariant [no_depositor_loss]
+    (_a0.is_set & _b0.is_set & _a1.is_set & _b1.is_set)
     ->
-    # If the attacker has zero shares, the LP's reserves only increase.
-    # (We do not say "the reserves are unchanged" because the attacker can
-    # deposit tokens and receive 0 shares, due to rounding, etc.)
-    (forall V.
-        (l.share.b.balance.pre(attacker_addr) & l.share.b.balance.map(attacker_addr, V) & V = integer.zero)
-        -> (integer.gte(l.reserve_a.v, _reserve_a.v) & integer.gte(l.reserve_b.v, _reserve_b.v)))
+    (integer.lte(_a1.v, _a0.v) & (forall DA, DB, DIV, MUL.
+        integer.minus(_a0.v, _a1.v, DA) & integer.minus(_b1.v, _b0.v, DB)
+        & integer.divi(_a1.v, _b1.v, DIV) & integer.mult(DB, DIV, MUL)
+        -> integer.lte(DA, MUL)))
+    |
+    (integer.lte(_b1.v, _b0.v) & (forall DA, DB, DIV, MUL.
+        integer.minus(_b0.v, _b1.v, DB) & integer.minus(_a1.v, _a0.v, DA)
+        & integer.divi(_b1.v, _a1.v, DIV) & integer.mult(DA, DIV, MUL)
+        -> integer.lte(DB, MUL)))
+    |
+    (integer.lte(_a0.v, _a1.v) & integer.lte(_b0.v, _b1.v))
+# (A1 <= A0), (B1 <= B0), and (A0 <= A1 & B0 <= B1) cover all cases.
 
 # attribute method = convert_to_mypyvy
