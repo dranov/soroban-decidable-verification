@@ -60,6 +60,10 @@ invariant [_reserve_b_set_once_attack_starts]
 invariant [_reserve_gte_zero]
     (_reserve_a.is_set -> integer.gte(_reserve_a.v, integer.zero))
     & (_reserve_b.is_set -> integer.gte(_reserve_b.v, integer.zero))
+invariant [reserve_change_imp_attacker_has_shares]
+    (attacker_has_started & ~attacker_interrupted) ->
+    ((_reserve_a.v ~= l.reserve_a.v | _reserve_b.v ~= l.reserve_b.v) ->
+        (l.share.b.balance.pre(attacker_addr)))
 
 action has_interacted_with_lp(addr: address) returns (b: bool) = {
     b := env.historical_auth_required(addr, l._this, _deposit)
@@ -71,6 +75,8 @@ action end_transaction_hook = {
     # Can the attacker period start now?
     if ~env.tx_has_panicked & ~attacker_has_started & has_interacted_with_lp(attacker_addr)
     & (exists F. env.auth_required(attacker_addr, l._this, F))
+    # For simplicity: attacker starts with zero shares
+    & (l.share.b.balance.pre(attacker_addr) -> l.share.b.balance.map(attacker_addr, integer.zero))
     {
         # Non-deterministically choose whether this is "the" attacker period
         local start_attacker_period: bool {
