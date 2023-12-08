@@ -140,9 +140,11 @@ invariant [no_easy_wins]
     # During the attack period
     attacker_has_started & ~attacker_interrupted
     ->
-    # If the attacker has zero shares, the LP's reserves are unchanged. 
+    # If the attacker has zero shares, the LP's reserves only increase.
+    # (We do not say "the reserves are unchanged" because the attacker can
+    # deposit tokens and receive 0 shares, due to rounding, etc.)
     (forall V.
         (l.share.b.balance.pre(attacker_addr) & l.share.b.balance.map(attacker_addr, V) & V = integer.zero)
-        -> ((l.reserve_a.v = _reserve_a.v) & (l.reserve_b.v = _reserve_b.v)))
+        -> (integer.gte(l.reserve_a.v, _reserve_a.v) & integer.gte(l.reserve_b.v, _reserve_b.v)))
 
 # attribute method = convert_to_mypyvy
