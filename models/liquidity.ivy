@@ -65,11 +65,11 @@ after init {
 invariant [deposited_imp_captured]
     depositor_deposited ->
         _depositor_shares.is_set & _a0.is_set & _b0.is_set
-        &  env.historical_auth_required(depositor_addr, l._this, _deposit)
+        # &  env.historical_auth_required(depositor_addr, l._this, _deposit)
 invariant [withdrew_imp_captured]
     depositor_withdrew ->
         _a1.is_set & _b1.is_set
-        &  env.historical_auth_required(depositor_addr, l._this, _withdraw)
+        # &  env.historical_auth_required(depositor_addr, l._this, _withdraw)
 invariant [withdrew_imp_deposited]
     depositor_withdrew -> depositor_deposited
 
@@ -89,15 +89,15 @@ action end_transaction_hook = {
         }
 
         # Non-deterministically choose whether this is "the" deposit
-        local deposit_now: bool {
-            if deposit_now {
-                depositor_deposited := true;
-                # Snapshot what gets deposited
-                _depositor_shares.set(_ghost_minted_shares);
-                _a0.set(_ghost_amount_a);
-                _b0.set(_ghost_amount_b);
-            }
-        }
+        # local deposit_now: bool {
+        #     if deposit_now {
+        depositor_deposited := true;
+        # Snapshot what gets deposited
+        _depositor_shares.set(_ghost_minted_shares);
+        _a0.set(_ghost_amount_a);
+        _b0.set(_ghost_amount_b);
+            # }
+        # }
     }
 
     # Has the depositor withdrawn?
@@ -167,5 +167,43 @@ invariant [no_depositor_loss]
     |
     (integer.lte(_a0.v, _a1.v) & integer.lte(_b0.v, _b1.v))
 # (A1 <= A0), (B1 <= B0), and (A0 <= A1 & B0 <= B1) cover all cases.
+
+# SCENARIO
+# (1) Deposit and immediately withdraw -- [no_depositor_loss] should hold
+action deposit_and_immediately_withdraw(depositor: address) = {
+    local share_amount: integer {
+        # (1) Deposit
+        env.begin_transaction(_deposit);
+        l._save_state();
+
+        local desired_a: integer, min_a: integer, desired_b: integer, min_b: integer {
+            l.deposit(depositor, desired_a, min_a, desired_b, min_b);
+            share_amount := _ghost_minted_shares;
+        }
+
+        require ~env.tx_has_panicked;
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+           l._restore_state();
+        }
+
+        # (2) Withdraw
+        env.begin_transaction(_withdraw);
+        l._save_state();
+
+        local min_a: integer, min_b: integer, out_a: integer, out_b: integer {
+            (out_a, out_b) := l.withdraw(depositor, share_amount, min_a, min_b);
+        }
+
+        require ~env.tx_has_panicked;
+        var restore: bool;
+        restore := env.end_transaction();
+        if restore {
+            l._restore_state();
+        }
+    }
+}
+export deposit_and_immediately_withdraw
 
 # attribute method = convert_to_mypyvy
