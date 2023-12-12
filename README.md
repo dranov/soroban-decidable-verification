@@ -1,62 +1,97 @@
 # soroban-decidable-verification
 
-Experiments with verifying Soroban smart contracts using decidable
-logic
+Experiments with verifying Soroban smart contracts using decidable logic. These
+are research prototypes. Use them at your own risk; no warranty is provided!
+
+We offer a framework for reasoning about Soroban smart contracts using
+[Ivy](https://github.com/kenmcmil/ivy), a research tool for automation-assisted
+interactive development and verification of protocols.
+
+You can create a _model_ of your Soroban smart contract, state the desired
+safety properties, and then with the help of Ivy, interactively discover an
+inductive invariant that establishes the desired properties:
+
+- translating your contract to Ivy is relatively straightforward, especially if
+  the contract does not use complex data structures;
+- discovering the inductive invariant can be a laborious process, requiring some
+  expertise.
+
+A tutorial for Ivy can be found in the
+[`doc/`](https://github.com/kenmcmil/ivy/tree/master/doc) folder in the Ivy
+repository.
+
 
 ## Docker Image
 
-We have a Docker image with a number of verification tools installed:
+We have a Docker image with a number of verification tools installed, including
+our custom versions of
+[Ivy](https://github.com/dranov/ivy/tree/soroban-improvements) and
+[mypyvy](https://github.com/dranov/mypyvy/commits/trace-dump):
 
 ```bash
 sudo service docker start
 ./docker/build
+./docker/run
 ```
 
-### Creusot
-```bash
-cd ~/creusot && export LD_LIBRARY_PATH+=:$(rustc --print=sysroot)/lib
-```
+### Examples
 
-### Prusti
+(1) To check all invariants on a given specification:
 
 ```bash
-. $HOME/.cargo/env \
-&& CHANNEL=$(cat /usr/local/prusti/rust-toolchain | grep channel | cut -d'"' -f2) \
-&& rustup install "$CHANNEL"
-export PATH=/usr/local/prusti:$PATH
+ivy_check token.ivy
 ```
 
-### Ivy
-
-To run Ivy correctly, do not invoke the scripts directly, but rather
-[run them through the module system](https://stackoverflow.com/a/65589847), e.g.
-`python3 -m ivy.ivy_check examples/ivy/array.ivy`. In the Docker image, you can
-just:
+(2) If an invariant fails to be maintained, you can obtain a concrete
+counter-example:
 
 ```bash
-ivy_check examples/ivy/array.ivy
-ivy_show isolate=this models/token.ivy
+ivy_check trace=true token.ivy
 ```
 
-## Relevant Tools
+This prints a counter-example to induction (CTI) in the form of a pre-state and
+step-by-step execution of the relevant transition.
 
-### Rust verification
+(3) If you do not care about the step-by-step execution, you can greatly speed
+up the time it takes to generate the counter-example, you can run:
 
-- [aeneas](https://github.com/AeneasVerif/aeneas) -- Rust to F*, Coq, HOL4, and Lean
-- [bolero](https://github.com/camshaft/bolero) -- property testing and verification frontend
-- [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) -- fuzzing
-- [cargo-verify](https://github.com/project-oak/rust-verification-tools/tree/main/cargo-verify) -- unmaintained
-- [coq-of-rust](https://github.com/formal-land/coq-of-rust) -- Rust to Coq
-- [creusot](https://github.com/xldenis/creusot) -- deductive verification by translation to Why3 (and then SMT solvers)
-- [crucible](https://github.com/GaloisInc/crucible) -- symbolic execution ([crux-mir](https://github.com/GaloisInc/crucible/tree/master/crux-mir))
-- [flux](https://github.com/flux-rs/flux) -- refinement types for Rust
-- [hacspec-v2](https://github.com/hacspec/hacspec-v2) -- Rust to Coq/F*
-- [kani](https://github.com/model-checking/kani) -- bit-precise model checker
-- [mirai](https://github.com/facebookexperimental/MIRAI) -- abstract interpreter for MIR
-- [miri](https://github.com/rust-lang/miri) -- instrumented interpreter
-- [proptest](https://github.com/proptest-rs/proptest) -- property-based testing
-- [prusti](https://github.com/viperproject/prusti-dev) -- static verifier based on [Viper](https://www.pm.inf.ethz.ch/research/viper.html)
-- [rudra](https://github.com/sslab-gatech/Rudra) -- memory safety & undefined behaviour detection
-- [rust-horn](https://github.com/hopv/rust-horn) -- CHC-based automated verifier
-- [seahorn](https://github.com/seahorn/seahorn) -- automated analysis framework for LLVM-based languages
-- [verus](https://github.com/verus-lang/verus) -- subset of Rust with support for verification
+```bash
+ivy_check model=true shrink=false token.ivy
+```
+
+This generates only the pre-state and tells Ivy to not minimize the generated model. Alternatively, if you want only the beginning of the step-by-step execution (e.g., to figure out which transition arguments we used), you can run:
+
+
+```bash
+ivy_check trace=true action_depth=0 token.ivy
+```
+
+`action_depth` can be any integer. Larger integers print more of the execution steps.
+
+(4) To convert an Ivy specification to mypyvy, add `attribute method=convert_to_mypyvy` in the `.ivy` file and then run `ivy_check`. You can then call `mypyvy` on the resulting `.pyv` file, e.g.:
+
+```bash
+mypyvy verify token.ivy
+mypyvy updr token.ivy
+```
+
+
+## Specification walkthrough
+
+This repository contains Ivy specifications for:
+
+- an abstracted Soroban environment (`soroban.ivy`)
+- abstracted versions of the integers (`integers.ivy`)
+- a model of the Token contract (`token_contract.ivy`)
+- a model of the Liquidity Pool contract (`liquidity_contract.ivy`)
+
+### Soroban environment
+
+We have modeled a bare-bones version of the Soroban environment, which provides
+basic support for reasoning about (a) authorization properties and (b) whether
+transactions panic.
+
+The environment includes a `partial_map` module to represent mappings (key-value
+dictionaries) and two modules that abstract the integers: `simplified_integer`
+(addition, substraction, comparison) and `decidable_integer` (multiplication,
+division, sqrt). It does NOT model expiration for temporary storage – all storage is modeled as permanent.
