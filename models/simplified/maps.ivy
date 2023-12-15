@@ -1,0 +1,132 @@
+#lang ivy1.8
+
+module my_map(dom,rng) = {
+    relation map(X:dom,Y:rng)
+    relation pre(X:dom)
+    relation _map(X:dom,Y:rng)
+    relation _pre(X:dom)
+
+    # mutate the function so x maps to y
+    action set(x:dom,y:rng)
+
+    # remove an element from the pre-image
+    action remove(x:dom)
+
+    # get the value of x, if any
+    action get(x:dom) returns (y:rng)
+
+    # true if x is in the pre-image
+    action has(x:dom) returns (r:bool)
+
+    action img_lemma(s:dom)
+
+    action save_state
+
+    specification {
+        after init {
+            pre(X) := false;
+            map(X,Y) := false;
+        }
+
+        after save_state {
+            _map(X,Y) := map(X,Y);
+            _pre(X) := pre(X)
+        }
+
+        after set {
+            map(x,Y) := Y = y;
+            pre(x) := true
+        }
+
+        after remove {
+            map(x,Y) := false;
+            pre(x) := false
+        }
+
+        after get {
+            assume pre(x) -> map(x,y)
+        }
+
+        after has {
+            assume r = pre(x)
+        }
+
+        after img_lemma(x:dom) {
+            assume pre(x) -> exists Y. map(x,Y)
+        }
+    }
+
+    invariant [mapping_preimage] map(K, V) -> pre(K)
+    invariant [functionality] map(K,L) & map(K,M) -> L = M
+
+    isolate spec = this
+}
+
+# to check the invariants:
+# type address
+# type integer
+# instance balance : my_map(address, integer)
+# export balance.get
+# export balance.set
+
+module my_binary_map(dom1,dom2,rng) = {
+    relation map(X1:dom1,X2:dom2,Y:rng)
+    relation pre(X1:dom1,X2:dom2)
+
+    # mutate the function so x maps to y
+    action set(x1:dom1,x2:dom2,y:rng)
+
+    # remove an element from the pre-image
+    action remove(x1:dom1,x2:dom2)
+
+    # get the value of x, if any
+    action get(x1:dom1,x2:dom2) returns (y:rng)
+
+    # true if x is in the pre-image
+    action has(x1:dom1,x2:dom2) returns (r:bool)
+
+    action img_lemma(x1:dom1,x2:dom2)
+
+    specification {
+        after init {
+            pre(X1,X2) := false;
+            map(X1,X2,Y) := false;
+        }
+
+        after set {
+            map(x1,x2,Y) := Y = y;
+            pre(x1,x2) := true
+        }
+
+        after remove {
+            map(x1,x2,Y) := false;
+            pre(x1,x2) := false
+        }
+
+        after get {
+            assume pre(x1,x2) -> map(x1,x2,y)
+        }
+
+        after has {
+            assume r = pre(x1,x2)
+        }
+
+        after img_lemma {
+            assume pre(x1,x2) -> exists Y. map(x1,x2,Y)
+        }
+    }
+
+    invariant [mapping_preimage] map(K1,K2, V) -> pre(K1,K2)
+    invariant [functionality] map(K1,K2,L) & map(K1,K2,M) -> L = M
+
+    isolate spec = this
+}
+
+# to check the invariants:
+# type t1
+# type t2
+# type t3
+# instance test : my_binary_map(t1,t2,t3)
+# export test.get
+# export test.set
+

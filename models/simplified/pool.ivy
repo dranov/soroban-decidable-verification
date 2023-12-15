@@ -1,0 +1,40 @@
+#lang ivy1.8
+
+# A model of a liquidity pool
+# To start with, let's just define basic operations and prove that the balances in the liquidity-pool state match the balances in the token contract state.
+
+include token
+
+instance token_a : token
+instance token_b : token
+instance token_s : token
+
+isolate pool = {
+    individual pool_addr: address
+    individual reserve_a : integer
+    individual reserve_b : integer
+    individual total_shares : integer
+
+    after init {
+        reserve_a := integer.zero;
+        reserve_b := integer.zero;
+    }
+
+    export action deposit(addr:address, na:integer, nb:integer) = {
+        require addr ~= pool_addr;
+        require integer.gte(na, integer.zero);
+        require integer.gte(nb, integer.zero);
+        token_a.transfer(addr, pool_addr, na);
+        reserve_a := integer.add(reserve_a, na);
+        token_b.transfer(addr, pool_addr, nb);
+        reserve_b := integer.add(reserve_b, nb);
+    }
+
+    invariant integer.gte(reserve_a, integer.zero)
+    invariant (reserve_a = integer.zero & ~token_a.balance.pre(pool_addr))
+        | (token_a.balance.pre(pool_addr) & token_a.balance.map(pool_addr, reserve_a))
+    invariant (reserve_b = integer.zero & ~token_b.balance.pre(pool_addr))
+        | (token_b.balance.pre(pool_addr) & token_b.balance.map(pool_addr, reserve_b))
+
+    # attribute method = convert_to_mypyvy
+} with token_a, token_b, token_s, integer #, integer.impl

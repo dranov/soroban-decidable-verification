@@ -1,0 +1,121 @@
+#lang ivy1.8
+
+include maps
+include integer
+
+instance integer : relational_integer
+
+type address
+
+module token = {
+
+    instance balance : my_map(address, integer)
+    instance allowance : my_binary_map(address, address, integer) # second address is the spender
+
+    relation signatures(A:address)
+
+    after init {
+        signatures(A) := false;
+    }
+
+    action panic = {
+        assume false
+    }
+
+     action read_balance(a : address) returns (res : integer) = {
+        if balance.has(a) {
+            res := balance.get(a)
+        } else {
+            res := integer.zero
+        }
+    }
+
+    action receive_balance(a : address, amount : integer) = {
+        var b := read_balance(a);
+        balance.set(a, integer.add(b, amount))
+    }
+
+    action spend_balance(a : address, amount : integer) = {
+        balance.save_state();
+        var b := read_balance(a);
+        if integer.lt(b, amount) {
+            panic();
+        };
+        balance.set(a, integer.sub(b, amount))
+    }
+
+     action mint(to : address, amount : integer) = {
+        balance.save_state();
+        if integer.lt(amount, integer.zero) {
+            panic();
+        };
+        receive_balance(to, amount)
+    }
+
+     action transfer(owner : address, to : address, amount : integer) = {
+        signatures(owner) := true; # record that the owner signed
+        if integer.lt(amount, integer.zero) {
+            panic();
+        };
+        spend_balance(owner, amount);
+        receive_balance(to, amount);
+    }
+
+     action read_allowance(owner: address, spender: address) returns (res: integer) = {
+        if allowance.has(owner, spender) {
+            res := allowance.get(owner, spender)
+        } else {
+            res := integer.zero
+        }
+    }
+
+    action write_allowance(owner: address, spender: address, amount: integer) = {
+        if integer.lt(amount, integer.zero) {
+            panic()
+        };
+        allowance.set(owner, spender, amount);
+    }
+
+     action approve_allowance(owner: address, spender: address, amount: integer) = {
+        signatures(owner) := true; # record that the owner signed
+        write_allowance(owner, spender, amount);
+    }
+
+
+     action spend_allowance(owner: address, spender: address, amount: integer) = {
+        if integer.lt(amount, integer.zero) {
+            panic();
+        };
+        var a := read_allowance(owner, spender);
+        if integer.lt(a, amount) {
+            panic();
+        };
+        write_allowance(owner, spender, integer.sub(a, amount));
+        spend_balance(owner, amount);
+    }
+
+    invariant [all_balances_positive]
+        forall A, V. balance.pre(A) & balance.map(A, V) -> integer.gte(V, integer.zero)
+
+    private {
+
+        # note that the owner does not have to have signed for allowances for an amount of zero
+        # this means one can spam the ledger with zero-value allowances
+        invariant allowance.map(A1, A2, N) & N ~= integer.zero -> signatures(A1)
+
+        invariant allowance.map(A1, A2, N) -> integer.gte(N, integer.zero)
+
+        invariant [balance_decrease_imp_sig] balance.pre(A) & balance.map(A,J) & balance._pre(A) & balance._map(A,I) & integer.lt(J,I) -> signatures(A)
+    }
+
+    # attribute method = convert_to_mypyvy
+
+    isolate iso = this with integer
+}
+
+# to test:
+# instance my_token : token
+# export my_token.approve_allowance
+# export my_token.spend_allowance
+# export my_token.transfer
+# export my_token.mint
