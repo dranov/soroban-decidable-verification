@@ -15,14 +15,43 @@ isolate pool = {
     individual reserve_b : integer
     individual total_shares : integer
 
+    # constants in the contract
+    individual residue_numerator : integer # = 997
+    individual residue_denominator : integer # = 1000
+
     # Ghost state
     individual _successful_deposit: bool
+    ## Ghost state for modelling [NoDepositorLoss]
+    # individual _depositor_addr: address
+    # individual _depositor_deposited: bool
+    # individual _depositor_withdrew: bool
+
+    # # Snapshot when "the" deposit happens
+    # individual _depositor_shares: integer
+    # individual _a0: integer
+    # individual _b0: integer
+    # # and when the withdrawal happens
+    # individual _a1: integer
+    # individual _b1: integer
+
 
     after init {
+        # pool_addr left unspecified
         reserve_a := integer.zero;
         reserve_b := integer.zero;
         total_shares := integer.zero;
+
+        # We don't model the actual number, just their relationship.
+        assume
+            residue_numerator ~= integer.zero & residue_denominator ~= integer.zero
+            & integer.lt(residue_numerator, residue_denominator);
+
+        # Ghost
         _successful_deposit := false;
+        # _deposit_addr left unspecified
+        # assume _depositor_addr ~= pool_addr;
+        # _depositor_deposited := false;
+        # _depositor_withdrew := false;
     }
 
     action panic = {
@@ -65,12 +94,83 @@ isolate pool = {
 
             # BEGIN GHOST
             _successful_deposit := true;
+            # if depositor = _depositor_addr {
+            #     # "The" depositor cannot deposit twice
+            #     if _depositor_deposited {
+            #         panic();
+            #     }
+            #     _depositor_deposited := true;
+            #     # Snapshot what gets deposited
+            #     _depositor_shares := shares_created;
+            #     _a0 := amount_a;
+            #     _b0 := amount_b;
+            # }
             # END GHOST
+        }
+    }
+
+    action swap(to: address, buy_a: bool, out: integer, in_max: integer) = {
+        local reserve_sell: integer, reserve_buy: integer,
+              n: integer, d: integer, sell_amount: integer,
+              balance_a: integer, balance_b: integer,
+              out_a: integer, out_b: integer,
+              old_inv_a: integer, old_inv_b: integer,
+              new_inv_a: integer, new_inv_b: integer {
+            if buy_a {
+                reserve_sell := reserve_b;
+                reserve_buy := reserve_a;
+            } else {
+                reserve_sell := reserve_a;
+                reserve_buy := reserve_b;
+            }
+
+            n := integer.mul(integer.mul(reserve_sell, out), residue_denominator);
+            d := integer.mul(integer.sub(reserve_buy, out), residue_numerator);
+            sell_amount := integer.add(integer.div(n, d), integer.one);
+
+            if integer.gt(sell_amount, in_max) {
+                panic();
+            }
+
+            if buy_a {
+                token_b.transfer(to, pool_addr, sell_amount);
+            } else {
+                token_a.transfer(to, pool_addr, sell_amount);
+            }
+
+            balance_a := token_a.read_balance(pool_addr);
+            balance_b := token_b.read_balance(pool_addr);
+
+            out_a := integer.zero;
+            out_b := integer.zero;
+            if buy_a {
+                out_a := out;
+            } else {
+                out_b := out;
+            }
+
+            new_inv_a := new_invariant_factor(balance_a, reserve_a, out_a);
+            new_inv_b := new_invariant_factor(balance_b, reserve_b, out_b);
+            old_inv_a := integer.mul(residue_denominator, reserve_a);
+            old_inv_b := integer.mul(residue_denominator, reserve_b);
+
+            if integer.lt(integer.mul(new_inv_a, new_inv_b), integer.mul(old_inv_a, old_inv_b)) {
+                panic();
+            }
+
+            if buy_a {
+                token_a.transfer(pool_addr, to, out_a);
+            } else {
+                token_b.transfer(pool_addr, to, out_b);
+            }
+            reserve_a := integer.sub(balance_a, out_a);
+            reserve_b := integer.sub(balance_b, out_b);
         }
     }
 
     action withdraw(to: address, share_amount: integer, min_a: integer, min_b: integer)
       returns (out_a: integer, out_b: integer) = {
+        require to ~= pool_addr;
         local balance_a: integer, balance_b: integer, balance_shares: integer {
             token_s.transfer(to, pool_addr, share_amount);
 
@@ -127,7 +227,22 @@ isolate pool = {
         }
     }
 
+    action new_invariant_factor(balance: integer, reserve: integer, out: integer)
+     returns (res: integer) = {
+        local _delta:integer, adj_delta:integer {
+            _delta := integer.sub(integer.sub(balance, reserve) , out);
+            adj_delta := integer.zero;
+            if integer.gt(_delta, integer.zero) {
+                adj_delta := integer.mul(residue_numerator, _delta);
+            } else {
+                adj_delta := integer.mul(residue_denominator, _delta);
+            }
+            res := integer.add(integer.mul(residue_denominator, reserve), adj_delta);
+        }
+    }
+
     export deposit
+    export swap
     export withdraw
 
     invariant [reserve_gte_zero]
@@ -154,5 +269,9 @@ isolate pool = {
     #     _successful_deposit <->
     #         integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero)
 
-    # attribute method = convert_to_mypyvy
+    invariant [both_zero_or_none_zero]
+        (reserve_a = integer.zero & reserve_b = integer.zero)
+        | (integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero))
+
+    attribute method = convert_to_mypyvy
 } with token_a, token_b, token_s, integer #, integer.impl
