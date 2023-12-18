@@ -1,0 +1,54 @@
+#lang ivy1.8
+
+module my_map(dom,rng) = {
+    relation map(X:dom,Y:rng)
+    relation pre(X:dom)
+
+    # mutate the function so x maps to y
+    action set(x:dom,y:rng)
+
+    # remove an element from the pre-image
+    action remove(x:dom)
+
+    # get the value of x, if any
+    action get(x:dom) returns (y:rng)
+
+    # true if x is in the pre-image
+    action has(x:dom) returns (r:bool)
+
+    action img_lemma(s:dom)
+
+    specification {
+        after init {
+            pre(X) := false;
+            map(X,Y) := false;
+        }
+
+        after set {
+            map(x,Y) := Y = y;
+            pre(x) := true
+        }
+
+        after remove {
+            map(x,Y) := false;
+            pre(x) := false
+        }
+
+        after get {
+            assume pre(x) -> map(x,y)
+        }
+
+        after has {
+            assume r = pre(x)
+        }
+
+        after img_lemma(x:dom) {
+            assume pre(x) -> exists Y. map(x,Y)
+        }
+    }
+
+    invariant [mapping_preimage] map(K, V) -> pre(K)
+    invariant [functionality] map(K,L) & map(K,M) -> L = M
+
+    isolate spec = this
+}

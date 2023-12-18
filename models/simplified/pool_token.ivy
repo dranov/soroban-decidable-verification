@@ -1,0 +1,65 @@
+#lang ivy1.8
+
+include maps_no_save
+include integer
+
+instance integer : relational_integer
+
+type address
+
+module token = {
+
+    instance balance : my_map(address, integer)
+
+    action panic = {
+        assume false
+    }
+
+     action read_balance(a : address) returns (res : integer) = {
+        if balance.has(a) {
+            res := balance.get(a)
+        } else {
+            res := integer.zero
+        }
+    }
+
+    action receive_balance(a : address, amount : integer) = {
+        var b := read_balance(a);
+        balance.set(a, integer.add(b, amount))
+    }
+
+    action spend_balance(a : address, amount : integer) = {
+        var b := read_balance(a);
+        if integer.lt(b, amount) {
+            panic();
+        };
+        balance.set(a, integer.sub(b, amount))
+    }
+
+     action mint(to : address, amount : integer) = {
+        if integer.lt(amount, integer.zero) {
+            panic();
+        };
+        receive_balance(to, amount)
+    }
+
+    action burn(owner : address, amount : integer) = {
+        if integer.lt(amount, integer.zero) {
+            panic();
+        };
+        spend_balance(owner, amount)
+    }
+
+     action transfer(owner : address, to : address, amount : integer) = {
+        if integer.lt(amount, integer.zero) {
+            panic();
+        };
+        spend_balance(owner, amount);
+        receive_balance(to, amount);
+    }
+
+    invariant [all_balances_positive]
+        forall A, V. balance.pre(A) & balance.map(A, V) -> integer.gte(V, integer.zero)
+
+    isolate iso = this with integer
+}

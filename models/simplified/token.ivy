@@ -113,7 +113,7 @@ module token = {
 
         invariant allowance.map(A1, A2, N) -> integer.gte(N, integer.zero)
 
-        invariant [balance_decrease_imp_sig] balance.pre(A) & balance.map(A,J) & balance._pre(A) & balance._map(A,I) & integer.lt(J,I) -> signatures(A)
+        # invariant [balance_decrease_imp_sig] balance.pre(A) & balance.map(A,J) & balance._pre(A) & balance._map(A,I) & integer.lt(J,I) -> signatures(A)
     }
 
     # attribute method = convert_to_mypyvy

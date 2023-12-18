@@ -3,7 +3,7 @@
 # A model of a liquidity pool
 # To start with, let's just define basic operations and prove that the balances in the liquidity-pool state match the balances in the token contract state.
 
-include token
+include pool_token
 
 instance token_a : token
 instance token_b : token
@@ -20,7 +20,7 @@ isolate pool = {
     individual residue_denominator : integer # = 1000
 
     # Ghost state
-    individual _successful_deposit: bool
+    # individual _successful_deposit: bool
     ## Ghost state for modelling [NoDepositorLoss]
     # individual _depositor_addr: address
     # individual _depositor_deposited: bool
@@ -47,7 +47,7 @@ isolate pool = {
             & integer.lt(residue_numerator, residue_denominator);
 
         # Ghost
-        _successful_deposit := false;
+        # _successful_deposit := false;
         # _deposit_addr left unspecified
         # assume _depositor_addr ~= pool_addr;
         # _depositor_deposited := false;
@@ -93,7 +93,7 @@ isolate pool = {
             reserve_b := balance_b;
 
             # BEGIN GHOST
-            _successful_deposit := true;
+            # _successful_deposit := true;
             # if depositor = _depositor_addr {
             #     # "The" depositor cannot deposit twice
             #     if _depositor_deposited {
