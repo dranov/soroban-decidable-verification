@@ -4,13 +4,15 @@ module relational_integer = {
     type this
     alias t = this
 
-    individual minus_one : t
+    # individual minus_one : t
     individual zero : t
     individual one : t
 
     relation lt(X:t,Y:t)
     relation plus(X:t,Y:t,Z:t)
     relation minus(X:t,Y:t,Z:t)
+    relation mult(X:t,Y:t,Z:t)
+    relation divi(X:t,Y:t,Z:t)
 
     # Derived relations
     relation lte(X:t, Y:t)# = lt(X, Y) | X = Y
@@ -27,6 +29,9 @@ module relational_integer = {
     # axioms. We state the former and instantiate the latter on demand.
     action add(x:t,y:t) returns (z:t)
     action sub(x:t,y:t) returns (z:t)
+    action mul(x:t,y:t) returns (z:t)
+    action div(x:t,y:t) returns (z:t)
+    action min(x:t,y:t) returns (z:t)
 
     # action opposite_lemma(x:t) # -x exists and x + (-x) = 0
     # action add_lemma(x:t,y:t)  # x + y exists
@@ -83,6 +88,29 @@ module relational_integer = {
         property [minus_gte] # a version of the above with ~lt(X, Y)
             minus(X, Y, Z) & gte(X, Y) -> gte(Z, zero)
 
+       # Properties of multiplication
+        property [mult_commutative]
+            mult(X, Y, Z) -> mult(Y, X, Z)
+        property [mult_associative]
+            mult(A, B, AB) & mult (AB, C, ABC1) &
+            mult(B, C, BC) & mult(A, BC, ABC2) -> ABC1 = ABC2
+        property [mult_zero]
+            mult(zero, X, zero)
+        property [mult_one]
+            mult(one, X, X)
+        property [mult_pos_pos]
+            mult(X, Y, Z) & gt(X, zero) & gt(Y, zero) -> gt(Z, zero)
+        property [mult_pos_neg]
+            mult(X, Y, Z) & gt(X, zero) & lt(Y, zero) -> lt(Z, zero)
+        property [mult_neg_neg]
+            mult(X, Y, Z) & lt(X, zero) & lt(Y, zero) -> gt(Z, zero)
+
+        # Properties of division
+        property [div_one]
+            divi(X, one, X)
+        property [div_self]
+            X ~= zero -> divi(X, X, one)
+
         ##########################
         # Action implementations #
         ##########################
@@ -107,6 +135,19 @@ module relational_integer = {
             # call opposite_lemma(x); call opposite_lemma(y); call opposite_lemma(z);
             assume minus(x, y, z);
         }
+        after mul {
+            assume mult(x, y, z);
+        }
+        after div {
+            assume divi(x, y, z);
+        }
+        after min {
+            if lt(x, y) {
+                assume z = x;
+            } else {
+                assume z = y;
+            }
+        }
         # after next {
             # assert plus(x, one, y);
             # assert minus(y, one, x);
@@ -122,12 +163,14 @@ module relational_integer = {
     object impl = {
         interpret t -> int
 
-        definition minus_one = 0 - 1
+        # definition minus_one = 0 - 1
         definition zero = 0
         definition one = 1
         definition lt(X, Y) = (X < Y)
         definition plus(X, Y, Z) = (Z = X + Y)
         definition minus(X, Y, Z) = (Z = X - Y)
+        definition mult(X, Y, Z) = (Z = X * Y)
+        definition divi(X, Y, Z) = (Z = X / Y)
 
         # Derived relations
         # FIXME: see the problem above with derived relations

@@ -15,26 +15,130 @@ isolate pool = {
     individual reserve_b : integer
     individual total_shares : integer
 
+    # Ghost state
+    individual _successful_deposit: bool
+
     after init {
         reserve_a := integer.zero;
         reserve_b := integer.zero;
+        total_shares := integer.zero;
+        _successful_deposit := false;
     }
 
-    export action deposit(addr:address, na:integer, nb:integer) = {
-        require addr ~= pool_addr;
-        require integer.gte(na, integer.zero);
-        require integer.gte(nb, integer.zero);
-        token_a.transfer(addr, pool_addr, na);
-        reserve_a := integer.add(reserve_a, na);
-        token_b.transfer(addr, pool_addr, nb);
-        reserve_b := integer.add(reserve_b, nb);
+    action panic = {
+        assume false
     }
 
-    invariant integer.gte(reserve_a, integer.zero)
-    invariant (reserve_a = integer.zero & ~token_a.balance.pre(pool_addr))
-        | (token_a.balance.pre(pool_addr) & token_a.balance.map(pool_addr, reserve_a))
-    invariant (reserve_b = integer.zero & ~token_b.balance.pre(pool_addr))
-        | (token_b.balance.pre(pool_addr) & token_b.balance.map(pool_addr, reserve_b))
+    action deposit(depositor: address, desired_a: integer, min_a: integer, desired_b: integer, min_b: integer) = {
+        require depositor ~= pool_addr;
+        local amount_a: integer, amount_b: integer,
+              balance_a: integer, balance_b: integer,
+              new_total_shares: integer, shares_created: integer {
+            (amount_a, amount_b) := get_deposit_amounts(desired_a, min_a, desired_b, min_b, reserve_a, reserve_b);
+            token_a.transfer(depositor, pool_addr, amount_a);
+            token_b.transfer(depositor, pool_addr, amount_b);
+
+            balance_a := token_a.read_balance(pool_addr);
+            balance_b := token_b.read_balance(pool_addr);
+
+            new_total_shares := integer.zero;
+            if integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero) {
+                local shares_a: integer, shares_b: integer {
+                    shares_a := integer.div(integer.mul(amount_a, total_shares), reserve_a);
+                    shares_b := integer.div(integer.mul(amount_b, total_shares), reserve_b);
+                    new_total_shares := integer.min(shares_a, shares_b);
+                }
+            } else {
+                # NOTE: in the actual contract, new_total_shares is the sqrt
+                # of this value, but that is not essential for correctness;
+                # it just has good properties.
+                new_total_shares := integer.mul(balance_a, balance_b);
+            }
+
+            shares_created := integer.sub(new_total_shares, total_shares);
+            token_s.mint(depositor, shares_created);
+            reserve_a := balance_a;
+            reserve_b := balance_b;
+
+            # BEGIN GHOST
+            _successful_deposit := true;
+            # END GHOST
+        }
+    }
+
+    action withdraw(to: address, share_amount: integer, min_a: integer, min_b: integer)
+      returns (out_a: integer, out_b: integer) = {
+        local balance_a: integer, balance_b: integer, balance_shares: integer {
+            token_s.transfer(to, pool_addr, share_amount);
+
+            balance_a := token_a.read_balance(pool_addr);
+            balance_b := token_b.read_balance(pool_addr);
+            balance_shares := token_s.read_balance(pool_addr);
+
+            out_a := integer.div(integer.mul(balance_a, balance_shares), total_shares);
+            out_b := integer.div(integer.mul(balance_b, balance_shares), total_shares);
+
+            if integer.lt(out_a, min_a) | integer.lt(out_b, min_b) {
+                panic();
+            }
+
+            token_s.burn(pool_addr, share_amount);
+            token_a.transfer(pool_addr, to, out_a);
+            token_b.transfer(pool_addr, to, out_b);
+            reserve_a := integer.sub(balance_a, out_a);
+            reserve_b := integer.sub(balance_b, out_b);
+        }
+    }
+
+    action get_deposit_amounts(desired_a: integer, min_a: integer, desired_b: integer, min_b: integer, reserve_a: integer, reserve_b: integer)
+     returns (res_a: integer, res_b: integer) = {
+        if reserve_a = integer.zero & reserve_b = integer.zero {
+            res_a := desired_a;
+            res_b := desired_b;
+            # return (desired_a, desired_b)
+        } else {
+            local amount_a:integer, amount_b: integer {
+                amount_b := integer.div(integer.mul(desired_a, reserve_b), reserve_a);
+                if integer.lte(amount_b, desired_b) {
+                    if integer.lt(amount_b, min_b) {
+                        panic();
+                    }
+                    res_a := desired_a;
+                    res_b := amount_b;
+                    # return (desired_a, amount_b)
+                } else {
+                    amount_a := integer.div(integer.mul(desired_b, reserve_a), reserve_b);
+                    # FIXME: Giuliano noticed that there is a bug here (in the actual example contract;
+                    # we faithfully model it). It should check amount_a < min_a (symmetric to L211 above)
+                    # rather than desired_a < min_a.
+                    if integer.gt(amount_a, desired_a) | integer.lt(desired_a, min_a) {
+                        panic();
+                    }
+                    res_a := amount_a;
+                    res_b := desired_b;
+                    # return (amount_a, desired_b)
+                }
+            }
+        }
+    }
+
+    export deposit
+    export withdraw
+
+    invariant [reserve_gte_zero]
+        integer.gte(reserve_a, integer.zero) & integer.gte(reserve_b, integer.zero)
+
+    # These aren't true...
+    # invariant [reserve_a_match_balance]
+    #     (reserve_a = integer.zero & ~token_a.balance.pre(pool_addr))
+    #     | (token_a.balance.pre(pool_addr) & token_a.balance.map(pool_addr, reserve_a))
+    # invariant [reserve_b_match_balance]
+    #     (reserve_b = integer.zero & ~token_b.balance.pre(pool_addr))
+    #     | (token_b.balance.pre(pool_addr) & token_b.balance.map(pool_addr, reserve_b))
+
+    invariant [reserves_gt_zero_after_init_deposit]
+        _successful_deposit ->
+            integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero)
 
     # attribute method = convert_to_mypyvy
 } with token_a, token_b, token_s, integer #, integer.impl

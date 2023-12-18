@@ -52,6 +52,14 @@ module token = {
         receive_balance(to, amount)
     }
 
+    action burn(owner : address, amount : integer) = {
+        signatures(owner) := true; # record that the owner signed
+        if integer.lt(amount, integer.zero) {
+            panic();
+        };
+        spend_balance(owner, amount)
+    }
+
      action transfer(owner : address, to : address, amount : integer) = {
         signatures(owner) := true; # record that the owner signed
         if integer.lt(amount, integer.zero) {
