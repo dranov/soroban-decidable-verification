@@ -18,7 +18,7 @@ module relational_integer = {
     relation lte(X:t, Y:t)# = lt(X, Y) | X = Y
     relation gt(X:t, Y:t)# = ~lt(X, Y) & X ~= Y  # i.e. ~lte(X, Y)
     relation gte(X:t, Y:t)# = ~lt(X, Y)
-    relation succ(X:t, Y:t)# = plus(X, one, Y)
+    # relation succ(X:t, Y:t)# = plus(X, one, Y)
 
     # action next(x:t) returns (y:t)
     # action prev(x:t) returns (y:t)
@@ -42,8 +42,8 @@ module relational_integer = {
         # property [constants_order] succ(minus_one, zero) & succ(zero, one)
         # property [minus_one_zero]
             # lt(minus_one, zero) & ~exists X. lt(minus_one, X) & lt(X, zero)
-        # property [zero_one]
-            # lt(zero, one) & ~exists X. lt(zero, X) & lt(X, one)
+        property [zero_one]
+            lt(zero, one) & ~exists X. lt(zero, X) & lt(X, one)
 
         # Derived relations
         property [lte_def] lte(X, Y) <-> lt(X, Y) | X = Y
@@ -177,7 +177,7 @@ module relational_integer = {
         definition lte(X, Y) = (X <= Y)
         definition gt(X, Y) = (X > Y)
         definition gte(X, Y) = (X >= Y)
-        definition succ(X, Y) = (Y = X + 1)
+        # definition succ(X, Y) = (Y = X + 1)
     }
 }
 

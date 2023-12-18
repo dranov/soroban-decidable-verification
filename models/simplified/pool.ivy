@@ -44,6 +44,9 @@ isolate pool = {
             new_total_shares := integer.zero;
             if integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero) {
                 local shares_a: integer, shares_b: integer {
+                    # FIXME: BUG: it seems this assumes reserve_a and reserve_b are both
+                    # strictly positive, but that's NOT TRUE.
+                    # [reserves_gt_zero_after_init_deposit] is false!
                     shares_a := integer.div(integer.mul(amount_a, total_shares), reserve_a);
                     shares_b := integer.div(integer.mul(amount_b, total_shares), reserve_b);
                     new_total_shares := integer.min(shares_a, shares_b);
@@ -112,6 +115,8 @@ isolate pool = {
                     # we faithfully model it). It should check amount_a < min_a (symmetric to L211 above)
                     # rather than desired_a < min_a.
                     if integer.gt(amount_a, desired_a) | integer.lt(desired_a, min_a) {
+                    # This is the correct version:
+                    # if integer.gt(amount_a, desired_a) | integer.lt(amount_a, min_a) {
                         panic();
                     }
                     res_a := amount_a;
@@ -128,7 +133,7 @@ isolate pool = {
     invariant [reserve_gte_zero]
         integer.gte(reserve_a, integer.zero) & integer.gte(reserve_b, integer.zero)
 
-    # These aren't true...
+    # These aren't true in general...
     # invariant [reserve_a_match_balance]
     #     (reserve_a = integer.zero & ~token_a.balance.pre(pool_addr))
     #     | (token_a.balance.pre(pool_addr) & token_a.balance.map(pool_addr, reserve_a))
@@ -136,9 +141,18 @@ isolate pool = {
     #     (reserve_b = integer.zero & ~token_b.balance.pre(pool_addr))
     #     | (token_b.balance.pre(pool_addr) & token_b.balance.map(pool_addr, reserve_b))
 
-    invariant [reserves_gt_zero_after_init_deposit]
-        _successful_deposit ->
-            integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero)
+    # These are...
+    invariant [reserve_a_lte_balance]
+        (reserve_a = integer.zero & ~token_a.balance.pre(pool_addr))
+        | (token_a.balance.pre(pool_addr) & (forall V. token_a.balance.map(pool_addr, V) -> integer.lte(reserve_a, V)))
+    invariant [reserve_b_lte_balance]
+        (reserve_b = integer.zero & ~token_b.balance.pre(pool_addr))
+        | (token_b.balance.pre(pool_addr) & (forall V. token_b.balance.map(pool_addr, V) -> integer.lte(reserve_b, V)))
+
+    # This is NOT true: BMC finds a counter-example.
+    # invariant [reserves_gt_zero_after_init_deposit]
+    #     _successful_deposit <->
+    #         integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero)
 
     # attribute method = convert_to_mypyvy
 } with token_a, token_b, token_s, integer #, integer.impl
