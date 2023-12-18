@@ -245,6 +245,13 @@ isolate pool = {
     export swap
     export withdraw
 
+    export action increase_lp_a_balance = {
+        token_a.mint(pool_addr, integer.one);
+    }
+    export action increase_lp_b_balance = {
+        token_b.mint(pool_addr, integer.one);
+    }
+
     invariant [reserve_gte_zero]
         integer.gte(reserve_a, integer.zero) & integer.gte(reserve_b, integer.zero)
 
