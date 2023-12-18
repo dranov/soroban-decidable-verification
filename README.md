@@ -68,7 +68,14 @@ ivy_check trace=true action_depth=0 token.ivy
 
 `action_depth` can be any integer. Larger integers print more of the execution steps.
 
-(4) To convert an Ivy specification to mypyvy, add `attribute method=convert_to_mypyvy` in the `.ivy` file and then run `ivy_check`. You can then call `mypyvy` on the resulting `.pyv` file, e.g.:
+(4) To convert an Ivy specification to mypyvy, add `attribute method=convert_to_mypyvy` in the `.ivy` file and then run `ivy_check`.
+
+If you want to use SMT queries to simplify the resulting mypyvy file, call
+`ivy_check simplify=true`. This might take minutes to hours on larger
+specifications, but should make queries on the mypyvy side much faster,
+especially for invariant inference.
+
+ You can then call `mypyvy` on the resulting `.pyv` file, e.g.:
 
 ```bash
 mypyvy verify token.ivy
@@ -95,3 +102,9 @@ The environment includes a `partial_map` module to represent mappings (key-value
 dictionaries) and two modules that abstract the integers: `simplified_integer`
 (addition, substraction, comparison) and `decidable_integer` (multiplication,
 division, sqrt). It does NOT model expiration for temporary storage – all storage is modeled as permanent.
+
+## Tips
+
+- Remove constants and relations that are not needed in your specification (e.g.
+  `minus_one` or ghost state), as each extra constant/relation can exponentially
+  increase solver times
