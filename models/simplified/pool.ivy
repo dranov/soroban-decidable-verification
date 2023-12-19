@@ -20,19 +20,20 @@ isolate pool = {
     individual residue_denominator : integer # = 1000
 
     # Ghost state
-    # individual _successful_deposit: bool
-    ## Ghost state for modelling [NoDepositorLoss]
-    # individual _depositor_addr: address
-    # individual _depositor_deposited: bool
-    # individual _depositor_withdrew: bool
+    individual _successful_deposit: bool
+    individual _succesful_withdrawal: bool
+    # Ghost state for modelling [NoDepositorLoss]
+    individual _depositor_addr: address
+    individual _depositor_deposited: bool
+    individual _depositor_withdrew: bool
 
-    # # Snapshot when "the" deposit happens
-    # individual _depositor_shares: integer
-    # individual _a0: integer
-    # individual _b0: integer
-    # # and when the withdrawal happens
-    # individual _a1: integer
-    # individual _b1: integer
+    # Snapshot when "the" deposit happens
+    individual _depositor_shares: integer
+    individual _a0: integer
+    individual _b0: integer
+    # and when the withdrawal happens
+    individual _a1: integer
+    individual _b1: integer
 
 
     after init {
@@ -47,11 +48,12 @@ isolate pool = {
             & integer.lt(residue_numerator, residue_denominator);
 
         # Ghost
-        # _successful_deposit := false;
+        _successful_deposit := false;
+        _succesful_withdrawal := false;
         # _deposit_addr left unspecified
-        # assume _depositor_addr ~= pool_addr;
-        # _depositor_deposited := false;
-        # _depositor_withdrew := false;
+        assume _depositor_addr ~= pool_addr;
+        _depositor_deposited := false;
+        _depositor_withdrew := false;
     }
 
     action panic = {
@@ -88,23 +90,24 @@ isolate pool = {
             }
 
             shares_created := integer.sub(new_total_shares, total_shares);
-            token_s.mint(depositor, shares_created);
+            mint_shares(depositor, shares_created);
+
             reserve_a := balance_a;
             reserve_b := balance_b;
 
             # BEGIN GHOST
-            # _successful_deposit := true;
-            # if depositor = _depositor_addr {
-            #     # "The" depositor cannot deposit twice
-            #     if _depositor_deposited {
-            #         panic();
-            #     }
-            #     _depositor_deposited := true;
-            #     # Snapshot what gets deposited
-            #     _depositor_shares := shares_created;
-            #     _a0 := amount_a;
-            #     _b0 := amount_b;
-            # }
+            _successful_deposit := true;
+            if depositor = _depositor_addr {
+                # "The" depositor cannot deposit twice
+                if _depositor_deposited {
+                    panic();
+                }
+                _depositor_deposited := true;
+                # Snapshot what gets deposited
+                _depositor_shares := shares_created;
+                _a0 := amount_a;
+                _b0 := amount_b;
+            }
             # END GHOST
         }
     }
@@ -185,11 +188,25 @@ isolate pool = {
                 panic();
             }
 
-            token_s.burn(pool_addr, share_amount);
+            burn_shares(share_amount);
             token_a.transfer(pool_addr, to, out_a);
             token_b.transfer(pool_addr, to, out_b);
             reserve_a := integer.sub(balance_a, out_a);
             reserve_b := integer.sub(balance_b, out_b);
+
+            # BEGIN GHOST
+            _succesful_withdrawal := true;
+            if to = _depositor_addr & _depositor_deposited & ~_depositor_withdrew {
+                # "The" depositor MUST withdraw the full amount
+                if share_amount ~= _depositor_shares {
+                    panic();
+                }
+                _depositor_withdrew := true;
+                # Snapshot what gets withdrawn
+                _a1 := out_a;
+                _b1 := out_b;
+            }
+            # END GHOST
         }
     }
 
@@ -214,9 +231,9 @@ isolate pool = {
                     # FIXME: Giuliano noticed that there is a bug here (in the actual example contract;
                     # we faithfully model it). It should check amount_a < min_a (symmetric to L211 above)
                     # rather than desired_a < min_a.
-                    if integer.gt(amount_a, desired_a) | integer.lt(desired_a, min_a) {
+                    # if integer.gt(amount_a, desired_a) | integer.lt(desired_a, min_a) {
                     # This is the correct version:
-                    # if integer.gt(amount_a, desired_a) | integer.lt(amount_a, min_a) {
+                    if integer.gt(amount_a, desired_a) | integer.lt(amount_a, min_a) {
                         panic();
                     }
                     res_a := amount_a;
@@ -241,15 +258,25 @@ isolate pool = {
         }
     }
 
+    action mint_shares(to: address, amount: integer) = {
+        token_s.mint(to, amount);
+        total_shares := integer.add(total_shares, amount);
+    }
+
+    action burn_shares(amount: integer) = {
+        token_s.burn(pool_addr, amount);
+        total_shares := integer.sub(total_shares, amount);
+    }
+
     export deposit
     export swap
     export withdraw
 
-    export action increase_lp_a_balance = {
-        token_a.mint(pool_addr, integer.one);
+    export action mint_a(amount: integer) = {
+        token_a.mint(pool_addr, amount);
     }
-    export action increase_lp_b_balance = {
-        token_b.mint(pool_addr, integer.one);
+    export action mint_b(amount: integer) = {
+        token_b.mint(pool_addr, amount);
     }
 
     invariant [reserve_gte_zero]
@@ -271,14 +298,24 @@ isolate pool = {
         (reserve_b = integer.zero & ~token_b.balance.pre(pool_addr))
         | (token_b.balance.pre(pool_addr) & (forall V. token_b.balance.map(pool_addr, V) -> integer.lte(reserve_b, V)))
 
-    # This is NOT true: BMC finds a counter-example.
-    # invariant [reserves_gt_zero_after_init_deposit]
-    #     _successful_deposit <->
-    #         integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero)
-
     invariant [both_zero_or_none_zero]
         (reserve_a = integer.zero & reserve_b = integer.zero)
         | (integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero))
+
+    invariant [no_depositor_loss]
+        _depositor_deposited & _depositor_withdrew
+        ->
+        (integer.lte(_a1, _a0) & (forall DA, DB, DIV, MUL.
+            integer.minus(_a0, _a1, DA) & integer.minus(_b1, _b0, DB)
+            & integer.divi(_a1, _b1, DIV) & integer.mult(DB, DIV, MUL)
+            -> integer.lte(DA, MUL)))
+        |
+        (integer.lte(_b1, _b0) & (forall DA, DB, DIV, MUL.
+            integer.minus(_b0, _b1, DB) & integer.minus(_a1, _a0, DA)
+            & integer.divi(_b1, _a1, DIV) & integer.mult(DA, DIV, MUL)
+            -> integer.lte(DB, MUL)))
+        |
+        (integer.lte(_a0, _a1) & integer.lte(_b0, _b1))
 
     attribute method = convert_to_mypyvy
 } with token_a, token_b, token_s, integer #, integer.impl
