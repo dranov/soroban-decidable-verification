@@ -139,6 +139,10 @@ module relational_integer = {
             assume mult(x, y, z);
         }
         after div {
+            # Crash on division by zero
+            if y = zero {
+                assume false;
+            }
             assume divi(x, y, z);
         }
         after min {
