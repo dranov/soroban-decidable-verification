@@ -63,6 +63,11 @@ module liquidity_contract = {
 
             # Calculate deposit amounts
             (_amount_a, _amount_b) := get_deposit_amounts(desired_a, min_a, desired_b, min_b, _reserve_a, _reserve_b);
+
+            if integer.lte(_amount_a, integer.zero) | integer.lte(_amount_b, integer.zero) {
+                panic();
+            }
+
             env.provide_auth(_this, a._this, _transfer);
             a.transfer(depositor, _this, _amount_a);
             env.provide_auth(_this, b._this, _transfer);
@@ -238,7 +243,10 @@ module liquidity_contract = {
                     # FIXME: Giuliano noticed that there is a bug here (in the actual example contract;
                     # we faithfully model it). It should check amount_a < min_a (symmetric to L211 above)
                     # rather than desired_a < min_a.
-                    if integer.gt(amount_a, desired_a) | integer.lt(desired_a, min_a) {
+                    # Incorrect version:
+                    # if integer.gt(amount_a, desired_a) | integer.lt(desired_a, min_a) {
+                    # Correct version:
+                    if integer.gt(amount_a, desired_a) | integer.lt(amount_a, min_a) {
                         panic();
                     }
                     res_a := amount_a;

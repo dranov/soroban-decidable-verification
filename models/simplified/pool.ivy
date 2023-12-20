@@ -66,6 +66,11 @@ isolate pool = {
               balance_a: integer, balance_b: integer,
               new_total_shares: integer, shares_created: integer {
             (amount_a, amount_b) := get_deposit_amounts(desired_a, min_a, desired_b, min_b, reserve_a, reserve_b);
+
+            if integer.lte(amount_a, integer.zero) | integer.lte(amount_b, integer.zero) {
+                panic();
+            }
+
             token_a.transfer(depositor, pool_addr, amount_a);
             token_b.transfer(depositor, pool_addr, amount_b);
 
@@ -272,11 +277,11 @@ isolate pool = {
     export swap
     export withdraw
 
-    export action mint_a(amount: integer) = {
-        token_a.mint(pool_addr, amount);
+    export action mint_a(addr: address, amount: integer) = {
+        token_a.mint(addr, amount);
     }
-    export action mint_b(amount: integer) = {
-        token_b.mint(pool_addr, amount);
+    export action mint_b(addr: address, amount: integer) = {
+        token_b.mint(addr, amount);
     }
 
     invariant [reserve_gte_zero]
@@ -302,6 +307,9 @@ isolate pool = {
         (reserve_a = integer.zero & reserve_b = integer.zero)
         | (integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero))
 
+    invariant [reserves_empty_iff_no_shares]
+        (reserve_a = integer.zero & reserve_b = integer.zero) <-> (total_shares = integer.zero)
+
     invariant [no_depositor_loss]
         _depositor_deposited & _depositor_withdrew
         ->
@@ -319,3 +327,24 @@ isolate pool = {
 
     attribute method = convert_to_mypyvy
 } with token_a, token_b, token_s, integer #, integer.impl
+
+# mypyvy traces
+
+# # No invalid deposits allowed
+# unsat trace {
+#   ext_c_pool_mint_a
+#   ext_c_pool_mint_b
+#   ext_c_pool_deposit
+#   assert pool_reserve_a = integer_zero & pool_reserve_b = integer_zero
+# }
+
+# # Sanity check: can do a full round-trip
+# sat trace {
+#   ext_c_pool_mint_a
+#   ext_c_pool_mint_b
+#   ext_c_pool_deposit
+#   assert integer_gt(pool_reserve_a, integer_zero) & integer_gt(pool_reserve_b, integer_zero)
+#   ext_c_pool_swap
+#   ext_c_pool_withdraw
+#   assert pool_reserve_a = integer_zero & pool_reserve_b = integer_zero
+# }
