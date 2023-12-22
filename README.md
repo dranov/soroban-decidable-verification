@@ -59,7 +59,9 @@ up the time it takes to generate the counter-example, you can run:
 ivy_check model=true shrink=false token.ivy
 ```
 
-This generates only the pre-state and tells Ivy to not minimize the generated model. Alternatively, if you want only the beginning of the step-by-step execution (e.g., to figure out which transition arguments we used), you can run:
+This generates only the pre-state and tells Ivy to not minimize the generated
+model. Alternatively, if you want only the beginning of the step-by-step
+execution (e.g., to figure out which transition arguments we used), you can run:
 
 
 ```bash
@@ -68,7 +70,9 @@ ivy_check trace=true action_depth=0 token.ivy
 
 `action_depth` can be any integer. Larger integers print more of the execution steps.
 
-(4) To convert an Ivy specification to mypyvy, add `attribute method=convert_to_mypyvy` in the `.ivy` file and then run `ivy_check`.
+(4) To convert an Ivy specification to mypyvy, add
+`attribute method=convert_to_mypyvy` in the `.ivy` file and then run
+`ivy_check`.
 
 If you want to use SMT queries to simplify the resulting mypyvy file, call
 `ivy_check simplify=true`. This might take minutes to hours on larger

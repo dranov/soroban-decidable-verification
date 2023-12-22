@@ -1,0 +1,12 @@
+[submodule "submodules/ivy"]
+	path = submodules/ivy
+	url = https://github.com/dranov/ivy.git
+	branch = soroban-improvements
+[submodule "submodules/mypyvy"]
+	path = submodules/mypyvy
+	url = https://github.com/dranov/mypyvy.git
+	branch = trace-dump
+[submodule "submodules/DuoAI"]
+	path = submodules/DuoAI
+	url = https://github.com/dranov/DuoAI.git
+	branch = trace-dump
