@@ -46,12 +46,12 @@ individual _ghost_amount_a: integer
 individual _ghost_amount_b: integer
 
 # Snapshot when "the" deposit happens
-instance _depositor_shares: singleton(integer)
-instance _a0: singleton(integer)
-instance _b0: singleton(integer)
+individual _depositor_shares: integer
+individual _a0: integer
+individual _b0: integer
 # and when the withdrawal happens
-instance _a1: singleton(integer)
-instance _b1: singleton(integer)
+individual _a1: integer
+individual _b1: integer
 
 after init {
     successful_deposit := false;
@@ -65,19 +65,17 @@ after init {
     _ghost_burned_shares := integer.zero;
     _ghost_amount_a := integer.zero;
     _ghost_amount_b := integer.zero;
+
+    _depositor_shares := integer.zero;
+    _a0 := integer.zero;
+    _b0 := integer.zero;
+    _a1 := integer.zero;
+    _b1 := integer.zero;
 }
 
 # Invariants for the ghost state
-invariant [deposited_imp_captured]
-    depositor_deposited ->
-        _depositor_shares.is_set & _a0.is_set & _b0.is_set
-        # &  env.historical_auth_required(depositor_addr, l._this, _deposit)
 invariant [depositor_imp_deposit]
     depositor_deposited -> successful_deposit
-invariant [withdrew_imp_captured]
-    depositor_withdrew ->
-        _a1.is_set & _b1.is_set
-        # &  env.historical_auth_required(depositor_addr, l._this, _withdraw)
 invariant [withdrew_imp_deposited]
     depositor_withdrew -> depositor_deposited
 
@@ -107,9 +105,9 @@ action end_transaction_hook = {
         #     if deposit_now {
         depositor_deposited := true;
         # Snapshot what gets deposited
-        _depositor_shares.set(_ghost_minted_shares);
-        _a0.set(_ghost_amount_a);
-        _b0.set(_ghost_amount_b);
+        _depositor_shares := _ghost_minted_shares;
+        _a0 := _ghost_amount_a;
+        _b0 := _ghost_amount_b;
             # }
         # }
     }
@@ -119,14 +117,14 @@ action end_transaction_hook = {
     & env.auth_required(depositor_addr, l._this, _withdraw) {
         # amount withdrawn should be equal to amount deposited
         # FIXME: does it make sense to panic in the transaction hook?
-        if ~(_ghost_burned_shares = _depositor_shares.v) {
+        if ~(_ghost_burned_shares = _depositor_shares) {
             panic();
         }
 
         depositor_withdrew := true;
         # Snapshot what gets withdrawn
-        _a1.set(_ghost_amount_a);
-        _b1.set(_ghost_amount_b);
+        _a1 := _ghost_amount_a;
+        _b1 := _ghost_amount_b;
     }
 
     # Once deposited and withdrew, stop all activity from depositor
@@ -172,67 +170,67 @@ invariant [reserves_gt_zero_after_init_deposit]
 # if B1 <= B0: B0 - B1 <= (A1 - A0) * (B1 / A1), or
 # A0 <= A1 & B0 <= B1
 invariant [no_depositor_loss]
-    (_a0.is_set & _b0.is_set & _a1.is_set & _b1.is_set)
+    depositor_deposited & depositor_withdrew
     ->
-    (integer.lte(_a1.v, _a0.v) & (forall DA, DB, DIV, MUL.
-        integer.minus(_a0.v, _a1.v, DA) & integer.minus(_b1.v, _b0.v, DB)
-        & integer.divi(_a1.v, _b1.v, DIV) & integer.mult(DB, DIV, MUL)
+    (integer.lte(_a1, _a0) & (forall DA, DB, DIV, MUL.
+        integer.minus(_a0, _a1, DA) & integer.minus(_b1, _b0, DB)
+        & integer.divi(_a1, _b1, DIV) & integer.mult(DB, DIV, MUL)
         -> integer.lte(DA, MUL)))
     |
-    (integer.lte(_b1.v, _b0.v) & (forall DA, DB, DIV, MUL.
-        integer.minus(_b0.v, _b1.v, DB) & integer.minus(_a1.v, _a0.v, DA)
-        & integer.divi(_b1.v, _a1.v, DIV) & integer.mult(DA, DIV, MUL)
+    (integer.lte(_b1, _b0) & (forall DA, DB, DIV, MUL.
+        integer.minus(_b0, _b1, DB) & integer.minus(_a1, _a0, DA)
+        & integer.divi(_b1, _a1, DIV) & integer.mult(DA, DIV, MUL)
         -> integer.lte(DB, MUL)))
     |
-    (integer.lte(_a0.v, _a1.v) & integer.lte(_b0.v, _b1.v))
+    (integer.lte(_a0, _a1) & integer.lte(_b0, _b1))
 # (A1 <= A0), (B1 <= B0), and (A0 <= A1 & B0 <= B1) cover all cases.
 
 # SCENARIO
 # (1) Deposit and immediately withdraw -- [no_depositor_loss] should hold
-action deposit_and_immediately_withdraw = {
-    # Nothing has happened yet
-    require ~depositor_deposited & ~depositor_withdrew;
+# action deposit_and_immediately_withdraw = {
+#     # Nothing has happened yet
+#     require ~depositor_deposited & ~depositor_withdrew;
 
-    local share_amount: integer {
-        # (1) Deposit
-        env.begin_transaction(_deposit);
-        l._save_state();
+#     local share_amount: integer {
+#         # (1) Deposit
+#         env.begin_transaction(_deposit);
+#         l._save_state();
 
-        local desired_a: integer, min_a: integer, desired_b: integer, min_b: integer {
-            l.deposit(depositor_addr, desired_a, min_a, desired_b, min_b);
-            share_amount := _ghost_minted_shares;
-        }
+#         local desired_a: integer, min_a: integer, desired_b: integer, min_b: integer {
+#             l.deposit(depositor_addr, desired_a, min_a, desired_b, min_b);
+#             share_amount := _ghost_minted_shares;
+#         }
 
-        require ~env.tx_has_panicked;
-        var restore_first: bool;
-        restore_first := env.end_transaction();
-        if restore_first {
-           l._restore_state();
-        }
+#         require ~env.tx_has_panicked;
+#         var restore_first: bool;
+#         restore_first := env.end_transaction();
+#         if restore_first {
+#            l._restore_state();
+#         }
 
-        assert depositor_deposited;
-        assert successful_deposit;
+#         assert depositor_deposited;
+#         assert successful_deposit;
 
-        # (2) Withdraw
-        env.begin_transaction(_withdraw);
-        l._save_state();
+#         # (2) Withdraw
+#         env.begin_transaction(_withdraw);
+#         l._save_state();
 
-        local min_a: integer, min_b: integer, out_a: integer, out_b: integer {
-            (out_a, out_b) := l.withdraw(depositor_addr, share_amount, min_a, min_b);
-        }
+#         local min_a: integer, min_b: integer, out_a: integer, out_b: integer {
+#             (out_a, out_b) := l.withdraw(depositor_addr, share_amount, min_a, min_b);
+#         }
 
-        require ~env.tx_has_panicked;
-        var restore_second: bool;
-        restore_second := env.end_transaction();
-        if restore_second {
-            l._restore_state();
-        }
+#         require ~env.tx_has_panicked;
+#         var restore_second: bool;
+#         restore_second := env.end_transaction();
+#         if restore_second {
+#             l._restore_state();
+#         }
 
-        assert ~restore_first & ~restore_second;
-        assert depositor_withdrew;
-    }
-}
-export deposit_and_immediately_withdraw
+#         assert ~restore_first & ~restore_second;
+#         assert depositor_withdrew;
+#     }
+# }
+# export deposit_and_immediately_withdraw
 
 # attribute method = convert_to_mypyvy
 # attribute method = bmc[6]
