@@ -307,8 +307,16 @@ isolate pool = {
         (reserve_b = integer.zero & ~token_b.balance.pre(pool_addr))
         | (token_b.balance.pre(pool_addr) & (forall V. token_b.balance.map(pool_addr, V) -> integer.lte(reserve_b, V)))
     # We would want that to say that total_shares = sum of all share balances
+    # akin to the "Summing Up Smart Transitions" CAV 2020 paper
+    # a solution referenced there is to use a ghost variable for the sum
+    # (the reference is [13], to "solc-verify")
     invariant [total_shares_gte_any_share_balance]
         forall A, V. token_s.balance.map(A, V) -> integer.gte(total_shares, V)
+    # Maybe this suffices? (It seems to crash Ivy when run with actual ints).
+    # invariant [total_shares_gte_sum]
+    #     forall A1, V1, V2, VSUM.
+    #         token_s.balance.map(A1, V1) & token_s.balance.map(pool_addr, V2)
+    #         & integer.plus(V1, V2, VSUM) -> integer.gte(total_shares, VSUM)
 
     invariant [both_zero_or_none_zero]
         (reserve_a = integer.zero & reserve_b = integer.zero)
