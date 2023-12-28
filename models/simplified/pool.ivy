@@ -118,12 +118,14 @@ isolate pool = {
     }
 
     action swap(to: address, buy_a: bool, out: integer, in_max: integer) = {
+        require to ~= pool_addr;
         local reserve_sell: integer, reserve_buy: integer,
               n: integer, d: integer, sell_amount: integer,
               balance_a: integer, balance_b: integer,
               out_a: integer, out_b: integer,
               old_inv_a: integer, old_inv_b: integer,
-              new_inv_a: integer, new_inv_b: integer {
+              new_inv_a: integer, new_inv_b: integer,
+              new_reserve_a: integer, new_reserve_b: integer {
             if buy_a {
                 reserve_sell := reserve_b;
                 reserve_buy := reserve_a;
@@ -171,8 +173,16 @@ isolate pool = {
             } else {
                 token_b.transfer(pool_addr, to, out_b);
             }
-            reserve_a := integer.sub(balance_a, out_a);
-            reserve_b := integer.sub(balance_b, out_b);
+
+            new_reserve_a := integer.sub(balance_a, out_a);
+            new_reserve_b := integer.sub(balance_b, out_b);
+
+            if integer.lte(new_reserve_a, integer.zero) | integer.lte(new_reserve_b, integer.zero) {
+                panic();
+            }
+
+            reserve_a := new_reserve_a;
+            reserve_b := new_reserve_b;
         }
     }
 
@@ -287,28 +297,27 @@ isolate pool = {
     invariant [reserve_gte_zero]
         integer.gte(reserve_a, integer.zero) & integer.gte(reserve_b, integer.zero)
 
-    # These aren't true in general...
-    # invariant [reserve_a_match_balance]
-    #     (reserve_a = integer.zero & ~token_a.balance.pre(pool_addr))
-    #     | (token_a.balance.pre(pool_addr) & token_a.balance.map(pool_addr, reserve_a))
-    # invariant [reserve_b_match_balance]
-    #     (reserve_b = integer.zero & ~token_b.balance.pre(pool_addr))
-    #     | (token_b.balance.pre(pool_addr) & token_b.balance.map(pool_addr, reserve_b))
+    invariant [total_shares_gte_zero]
+        integer.gte(total_shares, integer.zero)
 
-    # These are...
     invariant [reserve_a_lte_balance]
         (reserve_a = integer.zero & ~token_a.balance.pre(pool_addr))
         | (token_a.balance.pre(pool_addr) & (forall V. token_a.balance.map(pool_addr, V) -> integer.lte(reserve_a, V)))
     invariant [reserve_b_lte_balance]
         (reserve_b = integer.zero & ~token_b.balance.pre(pool_addr))
         | (token_b.balance.pre(pool_addr) & (forall V. token_b.balance.map(pool_addr, V) -> integer.lte(reserve_b, V)))
+    # We would want that to say that total_shares = sum of all share balances
+    invariant [total_shares_gte_any_share_balance]
+        forall A, V. token_s.balance.map(A, V) -> integer.gte(total_shares, V)
 
     invariant [both_zero_or_none_zero]
         (reserve_a = integer.zero & reserve_b = integer.zero)
         | (integer.gt(reserve_a, integer.zero) & integer.gt(reserve_b, integer.zero))
 
-    invariant [reserves_empty_iff_no_shares]
-        (reserve_a = integer.zero & reserve_b = integer.zero) <-> (total_shares = integer.zero)
+    # It is NOT the case that:
+    #   (reserve_a = integer.zero & reserve_b = integer.zero) <-> (total_shares = integer.zero)
+    # because reserves can be increased arbitrarily through transferring funds to the pool,
+    # and the reserves can then be increased through swaps, without any calls to `deposit`.
 
     invariant [no_depositor_loss]
         _depositor_deposited & _depositor_withdrew
