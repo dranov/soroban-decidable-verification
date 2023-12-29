@@ -109,6 +109,20 @@ dictionaries) and two modules that abstract the integers: `simplified_integer`
 division, sqrt). It does NOT model expiration for temporary storage – all
 storage is modeled as permanent.
 
+### Integers
+
+In `integers.ivy`, we have three "versions" of integers, two of which are
+decidable models of the integers (`simplified_integer` with only comparison and
+plus/minus and `decidable_integer`, with more complex operations), and one which
+is the actual interpreted integers.
+
+All properties of the models of integers are automatically verified against the
+actual integers.
+
+All three modules expose the same interface, and you can easily toggle between
+the version by uncommenting the relevant
+[line at the beginning of `soroban.ivy`](https://github.com/dranov/soroban-decidable-verification/blob/main/models/soroban.ivy#L6).
+
 ### Token contract
 
 `token_contract.ivy` is translated from the `soroban-examples` repository. We
