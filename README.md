@@ -134,8 +134,16 @@ This is not a security issue, but allowed the creation of "noise" in the state.
 
 ### Liquidity pool contract
 
+`liquidity_contract.ivy` is translated from the `soroban-examples` repository.
+There is also a simplfied version (see the section below) in
+`simplified/pool.ivy`. (Indeed, the simplified version is preferable for experimentation.)
 
-Findings:
+We have not been able to prove any substantial correctness property (in
+particular, we have not proven the `no_depositor_loss` property), largely due to
+limitations about decidable integers. Driving this proof to completion is left
+as future work.
+
+Nonetheless, we had some findings:
 
 - [There was a correctness-relevant typo in `get_deposit_amounts`](https://github.com/stellar/soroban-examples/pull/289/commits/6cd0fa668111f25e7cee66f4bf5dcc8e587aa794);
 - [In certain scenarios, it was possible to "brick" the LP contract by ensuring all `deposit` transactions panic](https://github.com/stellar/soroban-examples/pull/290).
