@@ -13,11 +13,16 @@ action end_transaction_hook = {
         & t.b.balance.map(O, NM) & t.b.balance._map(O, M)
         & integer.lt(NM, M) # O's balance has decreased
         & integer.minus(M, NM, A) # A is the amount transfered
-        & (env.tx_identifier = _transfer_from | env.tx_identifier = _burn_from)
-        -> ((exists X. (env.auth_required(X, t._this, _transfer_from) |
-                        env.auth_required(X, t._this, _burn_from))
-            & env.historical_auth_required(O, t._this, _approve)))) {
-                auth_assertion_failed := true;
+        ->
+        # either direct approvaql
+        ((env.tx_identifier = _transfer & env.auth_required(O, t._this, _transfer)) |
+         (env.tx_identifier = _burn & env.auth_required(O, t._this, _burn)))
+        # or indirect approval
+        | ((env.tx_identifier = _transfer_from | env.tx_identifier = _burn_from)
+            & ((exists X. (env.auth_required(X, t._this, _transfer_from) |
+                            env.auth_required(X, t._this, _burn_from))
+                & env.historical_auth_required(O, t._this, _approve))))) {
+        auth_assertion_failed := true;
     }
 }
 
