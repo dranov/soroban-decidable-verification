@@ -35,24 +35,24 @@ RUN pip3 install pyparsing ply tarjan pydot z3-solver
 
 RUN git clone https://github.com/dranov/ivy.git \
     && cd ivy \
-    && git checkout soroban-improvements \
-    && git submodule update --init
+    # mypyvy-translation branch
+    && git checkout a33f8ce6f26df2924e5b164dd86a03ed0849d14c \
+    && git submodule update --init \
+    && echo "commit a33f8ce6f26df2924e5b164dd86a03ed0849d14c"
 
-# For some reason, the Python 3 version of Ivy needs the built Z3
-# rather than being okay with the z3-solver package
 RUN cd ivy \
     && python3 build_submodules.py
 RUN cd ivy \
-    && sudo pip3 install .
+    && sudo -E python3 -m pip install .
 
 # # Install Duo
-RUN git clone https://github.com/VeriGu/Duo.git \
-    && cd Duo \
-    && sed -i 's$#define IVY_CHECK_PATH "/home/me/anaconda3/envs/py2/bin/ivy_check"$#define IVY_CHECK_PATH "/usr/local/bin/ivy_check"$g' src-c/InvRefiner.h \
-    && cd src-c \
-    && make
-RUN sudo apt-get install -y python3-pip
-RUN pip3 install numpy scipy pandas
+# RUN git clone https://github.com/VeriGu/Duo.git \
+#     && cd Duo \
+#     && sed -i 's$#define IVY_CHECK_PATH "/home/me/anaconda3/envs/py2/bin/ivy_check"$#define IVY_CHECK_PATH "/usr/local/bin/ivy_check"$g' src-c/InvRefiner.h \
+#     && cd src-c \
+#     && make
+# RUN sudo apt-get install -y python3-pip
+# RUN pip3 install numpy scipy pandas
 
 # Add links to make calling tools easier
 RUN sudo ln -s ${USER_HOME}/mypyvy/src/mypyvy.py /usr/local/bin/mypyvy
