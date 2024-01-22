@@ -14,6 +14,8 @@ RUN git clone https://github.com/dranov/mypyvy.git\
     && git checkout trace-dump \
     && pip3 install -r requirements.txt \
     && pip3 install z3-solver
+# for trace-dump
+RUN pip3 install numpy pandas
 
 # temporal-verifier / flyvy
 WORKDIR ${USER_HOME}
